@@ -14,6 +14,7 @@ get-size-derive2 = { version = "0.1.2", path = "get-size-derive2" }
 unsafe_code = "forbid"
 
 [workspace.lints.clippy]
+nursery = { level = "deny", priority = 1 }
 pedantic = { level = "deny", priority = 1 }
 enum_glob_use = { level = "deny", priority = 2 }
 module_name_repetitions = { level = "allow", priority = 3 }
@@ -24,7 +25,7 @@ out_of_bounds_indexing = { level = "allow", priority = 7 }
 perf = { level = "warn", priority = 8 }
 style = { level = "warn", priority = 9 }
 # TODO: Uncomment/Deny the following lines when the clippy lints are fixed
-#unwrap_used = { level = "deny", priority = 10 }
+# unwrap_used = { level = "deny", priority = 10 }
 #expect_used = { level = "deny", priority = 11 }
 needless_doctest_main = { level = "allow", priority = 12 }
 implicit_hasher = { level = "allow", priority = 13 }

@@ -126,6 +126,7 @@ impl GetSize for Instant {}
 impl GetSize for Duration {}
 impl GetSize for SystemTime {}
 
+#[allow(clippy::needless_lifetimes)] // That's ok here
 impl<'a, T> GetSize for Cow<'a, T>
 where
     T: ToOwned,
@@ -348,9 +349,9 @@ where
     }
 
     fn get_heap_size_with_tracker<TR: GetSizeTracker>(&self, mut tracker: TR) -> (usize, TR) {
-        let strong_ref = Rc::clone(self);
+        let strong_ref = Self::clone(self);
 
-        let addr = Rc::as_ptr(&strong_ref);
+        let addr = Self::as_ptr(&strong_ref);
 
         if tracker.track(addr, strong_ref) {
             GetSize::get_size_with_tracker(&**self, tracker)
@@ -375,9 +376,9 @@ where
     }
 
     fn get_heap_size_with_tracker<TR: GetSizeTracker>(&self, mut tracker: TR) -> (usize, TR) {
-        let strong_ref = Arc::clone(self);
+        let strong_ref = Self::clone(self);
 
-        let addr = Arc::as_ptr(&strong_ref);
+        let addr = Self::as_ptr(&strong_ref);
 
         if tracker.track(addr, strong_ref) {
             GetSize::get_size_with_tracker(&**self, tracker)
@@ -394,11 +395,7 @@ where
     T: GetSize,
 {
     fn get_heap_size(&self) -> usize {
-        match self {
-            // The options stack size already accounts for the values stack size.
-            Some(t) => GetSize::get_heap_size(t),
-            None => 0,
-        }
+        self.as_ref().map_or(0, |t| GetSize::get_heap_size(t))
     }
 }
 

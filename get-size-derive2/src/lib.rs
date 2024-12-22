@@ -36,7 +36,9 @@ fn extract_ignored_generics(attr: &syn::Attribute) -> Vec<syn::PathSegment> {
     }
 
     // Make sure it is a list.
-    let list = attr.meta.require_list().unwrap();
+    let Ok(list) = attr.meta.require_list() else {
+        return collection;
+    };
 
     // Parse the nested meta.
     // #[get_size(ignore(A, B))]
@@ -56,7 +58,7 @@ fn extract_ignored_generics(attr: &syn::Attribute) -> Vec<syn::PathSegment> {
 
         Ok(())
     })
-    .unwrap();
+    .expect("Could not parse the ignore list.");
 
     collection
 }

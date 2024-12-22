@@ -102,13 +102,13 @@ pub struct NoTracker {
 impl NoTracker {
     /// Creates a new pseudo tracker, which will always return the given `answer`.
     #[must_use]
-    pub fn new(answer: bool) -> Self {
+    pub const fn new(answer: bool) -> Self {
         Self { answer }
     }
 
     /// Get the answer which will always be returned by this pseudo tracker.
     #[must_use]
-    pub fn answer(&self) -> bool {
+    pub const fn answer(&self) -> bool {
         self.answer
     }
 

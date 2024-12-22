@@ -75,7 +75,7 @@ struct TestStructHelpers<A, B, C> {
     value3: C,
 }
 
-fn get_size_helper<C>(_value: &C) -> usize {
+const fn get_size_helper<C>(_value: &C) -> usize {
     50
 }
 

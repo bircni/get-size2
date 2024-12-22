@@ -16,7 +16,7 @@ struct TestStructHelpers<A, B, C, D> {
 // Does not implement GetSize
 struct NoGS {}
 
-fn get_size_helper<C>(_value: &C) -> usize {
+const fn get_size_helper<C>(_value: &C) -> usize {
     50
 }
 
