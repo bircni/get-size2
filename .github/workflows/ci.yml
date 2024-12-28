@@ -72,7 +72,7 @@ jobs:
   cargo-machete:
     runs-on: ubuntu-latest
     steps:
-      - uses: Swatinem/rust-cache@v2
+      # - uses: Swatinem/rust-cache@v2
       - uses: actions/checkout@v4
       - name: Machete
         uses: bnjbvr/cargo-machete@main
