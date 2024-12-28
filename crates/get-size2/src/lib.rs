@@ -23,6 +23,8 @@ pub use get_size_derive2::*;
 
 mod tracker;
 pub use tracker::*;
+#[cfg(test)]
+mod test;
 
 /// Determine the size in bytes an object occupies inside RAM.
 pub trait GetSize: Sized {

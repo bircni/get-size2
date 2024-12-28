@@ -1,0 +1,9 @@
+[licenses]
+version = 2
+confidence-threshold = 0.93
+allow = [
+    "Apache-2.0",  # https://tldrlegal.com/license/apache-license-2.0-(apache-2.0)
+    "MIT",         # https://tldrlegal.com/license/mit-license
+    "Unicode-3.0", # https://spdx.org/licenses/Unicode-3.0.0.html
+]
+exceptions = []

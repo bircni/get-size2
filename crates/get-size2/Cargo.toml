@@ -1,0 +1,28 @@
+[package]
+name = "get-size2"
+description = "Determine the size in bytes an object occupies inside RAM."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+readme = "README.md"
+repository = "https://github.com/bircni/get-size2"
+keywords = ["size", "heap", "ram", "memory", "get-size"]
+categories = ["memory-management", "caching"]
+
+[lints]
+workspace = true
+
+[dependencies]
+get-size-derive2 = { workspace = true, optional = true }
+
+[dev-dependencies]
+get-size2 = { path = ".", features = ["derive"] }
+
+[features]
+default = []
+derive = ["get-size-derive2"]
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]

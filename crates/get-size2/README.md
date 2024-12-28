@@ -78,7 +78,7 @@ In same cases you may be dealing with external types which allocate a fixed amou
 
 In same cases you may be dealing with an external data structure for which you know how to calculate its heap size using its public methods. In that case you may either use the newtype pattern to implement [`GetSize`] for it directly, or you can use the `size_fn` attribute, which will call the given function in order to calculate the fields heap size.
 
-The latter is especially usefull if you can make use of a certain trait to calculate the heap size for multiple types.
+The latter is especially useful if you can make use of a certain trait to calculate the heap size for multiple types.
 
 Note that unlike in other crates, the name of the function to be called is **not** encapsulated by double-quotes ("), but rather given directly.
 

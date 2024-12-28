@@ -20,7 +20,7 @@ fn main() {
     // assert_eq!(value.get_heap_size(), 5);
 
     // Our derive macro uses fully qualified syntax, so auto-dereferencing does
-    // not occour.
+    // not occur.
     let value = Test { value: &value };
 
     // The String is now only borrowed, leading to its heap bytes not being

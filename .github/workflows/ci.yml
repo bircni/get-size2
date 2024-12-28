@@ -1,6 +1,14 @@
 name: CI
 
-on: [push, pull_request]
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "*"
+  pull_request:
+    branches:
+      - main
 
 jobs:
   ci:
@@ -12,7 +20,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+
+      - name: Cache dependencies
+        uses: Swatinem/rust-cache@v2
 
       - name: cargo build
         run: cargo build
@@ -25,3 +36,43 @@ jobs:
 
       - name: cargo clippy
         run: cargo clippy -- -D warnings
+
+  cargo-deny:
+    strategy:
+      fail-fast: false
+    name: cargo-deny
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: EmbarkStudios/cargo-deny-action@v1
+        with:
+          rust-version: "1.83.0"
+          log-level: error
+          command: check
+
+  publish-check:
+    name: Publish Check
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo fetch
+      - name: cargo publish get-size2
+        run: cargo publish --dry-run -p get-size2
+      - name: cargo publish get-size2
+        run: cargo publish --dry-run -p get-size-derive2
+
+  typos:
+    name: Typos
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: crate-ci/typos@v1.19.0
+
+  cargo-machete:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/checkout@v4
+      - name: Machete
+        uses: bnjbvr/cargo-machete@main

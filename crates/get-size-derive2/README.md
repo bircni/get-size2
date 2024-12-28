@@ -1,6 +1,12 @@
+# get-size-derive
+
+[![Crates.io](https://img.shields.io/crates/v/get-size-derive2)](https://crates.io/crates/get-size-derive2)
+[![docs.rs](https://img.shields.io/docsrs/get-size-derive2)](https://docs.rs/get-size-derive2)
+[![MIT licensed](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/bircni/get-size2/blob/main/get-size-derive2/LICENSE)
+
 Derives [`GetSize`] for structs and enums.
 
-The derive macro will provide a costum implementation of the [`get_heap_size`] method, which will simply call [`get_heap_size`] on all contained values and add the values up. This implies that by default all values contained in the struct or enum must implement the [`GetSize`] trait themselves.
+The derive macro will provide a custom implementation of the [`get_heap_size`] method, which will simply call [`get_heap_size`] on all contained values and add the values up. This implies that by default all values contained in the struct or enum most implement the [`GetSize`] trait themselves.
 
 Note that the derive macro _does not support unions_. You have to manually implement it for them.
 
@@ -101,17 +107,17 @@ fn main() {
 }
 ```
 
-## Dealing with external types which do not implement `GetSize`
+### Dealing with external types which do not implement GetSize
 
 Deriving [`GetSize`] is straight forward if all the types contained in your data structure implement [`GetSize`] themselves, but this might not always be the case. For that reason the derive macro offers some helpers to assist you in that case.
 
 Note that the helpers are currently only available for regular structs, that is they do neither support tuple structs nor enums.
 
-### Ignoring certain values
+#### Ignoring certain values
 
 You can tell the derive macro to ignore certain struct fields by adding the `ignore` attribute to them. The generated implementation of [`get_heap_size`] will then simple skip this field.
 
-#### Example
+##### Example
 
 The idiomatic use case for this helper is if you use shared ownership and do not want your data to be counted twice.
 
@@ -151,7 +157,7 @@ fn main() {
 }
 ```
 
-#### Example
+##### Example
 
 But you may also use this as a band aid, if a certain struct fields type does not implement [`GetSize`].
 
@@ -188,20 +194,12 @@ fn main() {
 }
 ```
 
-### Returning a fixed value
+#### Returning a fixed value
 
 In same cases you may be dealing with external types which allocate a fixed amount of bytes at the heap. In this case you may use the `size` attribute to always account the given field with a fixed value.
 
 ```rust
 use get_size2::GetSize;
-#
-# struct Buffer1024 {}
-#
-# impl Buffer1024 {
-#   fn new() -> Self {
-#      Self {}
-#   }
-# }
 
 #[derive(GetSize)]
 struct TestStruct {
@@ -220,18 +218,16 @@ fn main() {
 }
 ```
 
-### Using a helper function
+#### Using a helper function
 
 In same cases you may be dealing with an external data structure for which you know how to calculate its heap size using its public methods. In that case you may either use the newtype pattern to implement [`GetSize`] for it directly, or you can use the `size_fn` attribute, which will call the given function in order to calculate the fields heap size.
 
-The latter is especially usefull if you can make use of a certain trait to calculate the heap size for multiple types.
+The latter is especially useful if you can make use of a certain trait to calculate the heap size for multiple types.
 
 Note that unlike in other crates, the name of the function to be called is **not** encapsulated by double-quotes ("), but rather given directly.
 
 ```rust
 use get_size2::GetSize;
-#
-# type ExternalVecAlike<T> = Vec<T>;
 
 #[derive(GetSize)]
 struct TestStruct {
@@ -261,7 +257,7 @@ fn main() {
 }
 ```
 
-### Ignoring certain generic types
+#### Ignoring certain generic types
 
 If your struct uses generics, but the fields at which they are stored are ignored or get handled by helpers because the generic does not implement [`GetSize`], you will have to mark these generics with a special struct level `ignore` attribute. Otherwise the derived [`GetSize`] implementation would still require these generics to implement [`GetSize`], even through there is no need for it.
 
@@ -299,11 +295,19 @@ fn main() {
 }
 ```
 
-# Panics
+## Panics
 
 The derive macro will panic if used on unions since these are currently not supported.
 
 Note that there will be a compilation error if one of the (not ignored) values encountered does not implement the [`GetSize`] trait.
+
+## License
+
+This library is licensed under the [MIT license](http://opensource.org/licenses/MIT).
+
+### Contribution
+
+Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in this library by you, shall be licensed as MIT, without any additional terms or conditions.
 
 [`GetSize`]: https://docs.rs/get-size/latest/get_size/trait.GetSize.html
 [`get_heap_size`]: https://docs.rs/get-size/latest/get_size/trait.GetSize.html#method.get_heap_size
