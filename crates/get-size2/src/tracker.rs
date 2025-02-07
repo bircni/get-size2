@@ -30,7 +30,7 @@ impl<T: GetSizeTracker> GetSizeTracker for Box<T> {
 
 impl<T: GetSizeTracker> GetSizeTracker for Mutex<T> {
     fn track<A: Any + 'static, B>(&mut self, addr: *const B, strong_ref: A) -> bool {
-        let tracker = self.get_mut().unwrap();
+        let tracker = self.get_mut().expect("Mutex was poisoned");
 
         GetSizeTracker::track(&mut *tracker, addr, strong_ref)
     }
@@ -38,7 +38,7 @@ impl<T: GetSizeTracker> GetSizeTracker for Mutex<T> {
 
 impl<T: GetSizeTracker> GetSizeTracker for RwLock<T> {
     fn track<A: Any + 'static, B>(&mut self, addr: *const B, strong_ref: A) -> bool {
-        let mut tracker = self.write().unwrap();
+        let mut tracker = self.write().expect("RwLock was poisoned");
 
         GetSizeTracker::track(&mut *tracker, addr, strong_ref)
     }
@@ -46,7 +46,7 @@ impl<T: GetSizeTracker> GetSizeTracker for RwLock<T> {
 
 impl<T: GetSizeTracker> GetSizeTracker for Arc<Mutex<T>> {
     fn track<A: Any + 'static, B>(&mut self, addr: *const B, strong_ref: A) -> bool {
-        let mut tracker = self.lock().unwrap();
+        let mut tracker = self.lock().expect("Mutex was poisoned");
 
         GetSizeTracker::track(&mut *tracker, addr, strong_ref)
     }
@@ -54,7 +54,7 @@ impl<T: GetSizeTracker> GetSizeTracker for Arc<Mutex<T>> {
 
 impl<T: GetSizeTracker> GetSizeTracker for Arc<RwLock<T>> {
     fn track<A: Any + 'static, B>(&mut self, addr: *const B, strong_ref: A) -> bool {
-        let mut tracker = self.write().unwrap();
+        let mut tracker = self.write().expect("RwLock was poisoned");
 
         GetSizeTracker::track(&mut *tracker, addr, strong_ref)
     }

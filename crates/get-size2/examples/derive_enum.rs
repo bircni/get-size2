@@ -17,20 +17,20 @@ pub enum TestEnumNumber {
 
 fn main() {
     let test = TestEnum::Variant1(1, 2, 3);
-    assert_eq!(test.get_heap_size(), 0);
+    assert_eq!(test.get_heap_size(), 0, "TestEnum::Variant1");
 
     let test = TestEnum::Variant2("Hello".into());
-    assert_eq!(test.get_heap_size(), 5);
+    assert_eq!(test.get_heap_size(), 5, "TestEnum::Variant2");
 
     let test = TestEnum::Variant3;
-    assert_eq!(test.get_heap_size(), 0);
+    assert_eq!(test.get_heap_size(), 0, "TestEnum::Variant3");
 
     let test = TestEnum::Variant4 {
         x: "Hello".into(),
         y: "world".into(),
     };
-    assert_eq!(test.get_heap_size(), 5 + 5);
+    assert_eq!(test.get_heap_size(), 5 + 5, "TestEnum::Variant4");
 
     let test = TestEnumNumber::One;
-    assert_eq!(test.get_heap_size(), 0);
+    assert_eq!(test.get_heap_size(), 0, "TestEnumNumber::One");
 }

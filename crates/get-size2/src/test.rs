@@ -1,3 +1,5 @@
+#![expect(dead_code, reason = "This is a test module")]
+
 use get_size2::*;
 
 #[derive(GetSize)]
@@ -34,7 +36,6 @@ fn derive_struct_with_generics() {
 
 #[derive(GetSize)]
 #[get_size(ignore(B, C))]
-#[allow(dead_code)]
 struct TestStructGenericsIgnore<A, B, C> {
     value1: A,
     #[get_size(ignore)]
@@ -43,7 +44,6 @@ struct TestStructGenericsIgnore<A, B, C> {
     value3: C,
 }
 
-#[allow(dead_code)]
 struct TestStructNoGetSize {
     value: String,
 }
@@ -66,7 +66,6 @@ fn derive_struct_with_generics_and_ignore() {
 
 #[derive(GetSize)]
 #[get_size(ignore(B, C))]
-#[allow(dead_code)]
 struct TestStructHelpers<A, B, C> {
     value1: A,
     #[get_size(size = 100)]
@@ -104,7 +103,7 @@ pub struct TestStructGenericsLifetimes<'a, A, B> {
 fn derive_struct_with_generics_and_lifetimes() {
     let value = 123u64;
 
-    let test: TestStructGenericsLifetimes<String, u64> = TestStructGenericsLifetimes {
+    let test: TestStructGenericsLifetimes<'_, String, u64> = TestStructGenericsLifetimes {
         value1: "Hello".into(),
         value2: &value,
     };
@@ -168,10 +167,10 @@ pub enum TestEnumGenerics<'a, A, B, C> {
 
 #[test]
 fn derive_enum_generics() {
-    let test: TestEnumGenerics<u64, String, TestStruct> = TestEnumGenerics::Variant1(123);
+    let test: TestEnumGenerics<'_, u64, String, TestStruct> = TestEnumGenerics::Variant1(123);
     assert_eq!(test.get_heap_size(), 0);
 
-    let test: TestEnumGenerics<u64, String, TestStruct> =
+    let test: TestEnumGenerics<'_, u64, String, TestStruct> =
         TestEnumGenerics::Variant2("Hello".into());
     assert_eq!(test.get_heap_size(), 5);
 
@@ -180,7 +179,8 @@ fn derive_enum_generics() {
         value2: 123,
     };
 
-    let test: TestEnumGenerics<u64, String, TestStruct> = TestEnumGenerics::Variant3(&test_struct);
+    let test: TestEnumGenerics<'_, u64, String, TestStruct> =
+        TestEnumGenerics::Variant3(&test_struct);
     assert_eq!(test.get_heap_size(), 0); // It is a pointer.
 }
 

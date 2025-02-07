@@ -1,4 +1,4 @@
-#![allow(dead_code)]
+#![expect(dead_code, reason = "this is an example")]
 use get_size2::GetSize;
 
 type Buffer1024 = Vec<u8>;
@@ -16,5 +16,5 @@ fn main() {
         buffer: Buffer1024::new(),
     };
 
-    assert_eq!(test.get_heap_size(), 1024);
+    assert_eq!(test.get_heap_size(), 1024, "TestStruct");
 }

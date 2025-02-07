@@ -12,5 +12,5 @@ fn main() {
         value2: 123,
     };
 
-    assert_eq!(test.get_heap_size(), 5);
+    assert_eq!(test.get_heap_size(), 5, "OwnStruct");
 }

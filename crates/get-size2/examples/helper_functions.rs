@@ -23,5 +23,5 @@ fn main() {
 
     let test = TestStruct { id: 1, buffer };
 
-    assert_eq!(test.get_heap_size(), 512);
+    assert_eq!(test.get_heap_size(), 512, "TestStruct");
 }

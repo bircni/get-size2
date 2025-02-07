@@ -1,4 +1,4 @@
-#![allow(dead_code)]
+#![expect(dead_code, reason = "this is an example")]
 use get_size2::GetSize;
 use std::sync::Arc;
 
@@ -28,7 +28,8 @@ fn main() {
     // Note that Arc does also store the Vec's stack data on the heap.
     assert_eq!(
         primary_data.get_heap_size(),
-        Vec::<u8>::get_stack_size() + 1024
+        Vec::<u8>::get_stack_size() + 1024,
+        "PrimaryStore"
     );
-    assert_eq!(secondary_data.get_heap_size(), 0);
+    assert_eq!(secondary_data.get_heap_size(), 0, "SecondaryStore");
 }

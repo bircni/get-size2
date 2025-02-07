@@ -1,4 +1,4 @@
-#![allow(dead_code)]
+#![expect(dead_code, reason = "this is an example")]
 use get_size2::GetSize;
 
 #[derive(GetSize)]
@@ -28,5 +28,5 @@ fn main() {
         value4: 123,
     };
 
-    assert_eq!(test.get_heap_size(), 5 + 100 + 50);
+    assert_eq!(test.get_heap_size(), 5 + 100 + 50, "TestStructHelpers");
 }

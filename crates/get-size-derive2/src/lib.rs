@@ -87,12 +87,16 @@ fn add_trait_bounds(mut generics: syn::Generics, ignored: &Vec<syn::PathSegment>
     generics
 }
 
-#[allow(clippy::too_many_lines, clippy::missing_panics_doc)] // TODO: Refactor this function.
+#[expect(
+    clippy::too_many_lines,
+    clippy::missing_panics_doc,
+    reason = "Needs refactoring"
+)]
 #[proc_macro_derive(GetSize, attributes(get_size))]
 pub fn derive_get_size(input: TokenStream) -> TokenStream {
     // Construct a representation of Rust code as a syntax tree
     // that we can manipulate
-    let ast: syn::DeriveInput = syn::parse(input).unwrap();
+    let ast: syn::DeriveInput = syn::parse(input).expect("Could not parse tokens");
 
     // The name of the sruct.
     let name = &ast.ident;
@@ -129,7 +133,8 @@ pub fn derive_get_size(input: TokenStream) -> TokenStream {
                         let mut field_idents = Vec::with_capacity(num_fields);
                         for i in 0..num_fields {
                             let field_ident = String::from("v") + &i.to_string();
-                            let field_ident = syn::parse_str::<syn::Ident>(&field_ident).unwrap();
+                            let field_ident = syn::parse_str::<syn::Ident>(&field_ident)
+                                .expect("Could not parse string to ident.");
 
                             field_idents.push(field_ident);
                         }
@@ -138,7 +143,8 @@ pub fn derive_get_size(input: TokenStream) -> TokenStream {
 
                         for (i, _field) in unnamed_fields.unnamed.iter().enumerate() {
                             let field_ident = String::from("v") + &i.to_string();
-                            let field_ident = syn::parse_str::<syn::Ident>(&field_ident).unwrap();
+                            let field_ident = syn::parse_str::<syn::Ident>(&field_ident)
+                                .expect("Could not parse string to ident.");
 
                             field_cmds.push(quote! {
                                 let (total_add, tracker) = ::get_size2::GetSize::get_heap_size_with_tracker(#field_ident, tracker);
@@ -164,7 +170,8 @@ pub fn derive_get_size(input: TokenStream) -> TokenStream {
                         let mut field_cmds = Vec::with_capacity(num_fields);
 
                         for field in &named_fields.named {
-                            let field_ident = field.ident.as_ref().unwrap();
+                            let field_ident =
+                                field.ident.as_ref().expect("Could not get field ident.");
 
                             field_idents.push(field_ident);
 
@@ -233,7 +240,8 @@ pub fn derive_get_size(input: TokenStream) -> TokenStream {
 
             for field in &data_struct.fields {
                 // Parse all relevant attributes.
-                let attr = StructFieldAttribute::from_attributes(&field.attrs).unwrap();
+                let attr = StructFieldAttribute::from_attributes(&field.attrs)
+                    .expect("Could not parse attributes.");
 
                 // NOTE There will be no attributes if this is a tuple struct.
                 if let Some(size) = attr.size {
@@ -243,7 +251,7 @@ pub fn derive_get_size(input: TokenStream) -> TokenStream {
 
                     continue;
                 } else if let Some(size_fn) = attr.size_fn {
-                    let ident = field.ident.as_ref().unwrap();
+                    let ident = field.ident.as_ref().expect("Could not get field ident.");
 
                     cmds.push(quote! {
                         total += #size_fn(&self.#ident);

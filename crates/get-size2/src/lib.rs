@@ -128,7 +128,7 @@ impl GetSize for Instant {}
 impl GetSize for Duration {}
 impl GetSize for SystemTime {}
 
-#[allow(clippy::needless_lifetimes)] // That's ok here
+#[expect(clippy::needless_lifetimes, reason = "ok here")]
 impl<'a, T> GetSize for Cow<'a, T>
 where
     T: ToOwned,
@@ -421,7 +421,7 @@ where
 {
     fn get_heap_size(&self) -> usize {
         // We assume that a Mutex does hold its data at the stack.
-        GetSize::get_heap_size(&*(self.lock().unwrap()))
+        GetSize::get_heap_size(&*(self.lock().expect("Mutex is poisoned")))
     }
 }
 
@@ -431,7 +431,7 @@ where
 {
     fn get_heap_size(&self) -> usize {
         // We assume that a RwLock does hold its data at the stack.
-        GetSize::get_heap_size(&*(self.read().unwrap()))
+        GetSize::get_heap_size(&*(self.read().expect("RwLock is poisoned")))
     }
 }
 
