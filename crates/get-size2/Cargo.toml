@@ -19,15 +19,17 @@ get-size-derive2 = { workspace = true, optional = true }
 
 chrono = { version = "0.4", default-features = false, optional = true }
 chrono-tz = { version = "0.10", default-features = false, optional = true }
+url = { version = "2", default-features = false, optional = true }
 
 [dev-dependencies]
-get-size2 = { path = ".", features = ["derive", "chrono", "chrono-tz"] }
+get-size2 = { path = ".", features = ["derive", "chrono", "chrono-tz", "url"] }
 
 [features]
 default = []
 derive = ["get-size-derive2"]
 chrono = ["dep:chrono"]
 chrono-tz = ["dep:chrono-tz"]
+url = ["dep:url"]
 
 [package.metadata.docs.rs]
 all-features = true

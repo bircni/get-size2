@@ -282,3 +282,11 @@ fn chrono_tz() {
         .unwrap(); // `2014-07-08T09:10:11Z`
     assert_eq!(datetime.offset().get_heap_size(), 0);
 }
+
+#[test]
+fn url() {
+    const URL_STR: &str = "https://example.com/path?a=b&c=d";
+
+    let url = url::Url::parse(URL_STR).unwrap();
+    assert_eq!(url.get_heap_size(), URL_STR.len());
+}

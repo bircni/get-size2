@@ -542,3 +542,10 @@ mod chrono {
 
 #[cfg(feature = "chrono-tz")]
 impl GetSize for chrono_tz::TzOffset {}
+
+#[cfg(feature = "url")]
+impl GetSize for url::Url {
+    fn get_heap_size(&self) -> usize {
+        self.as_str().len()
+    }
+}
