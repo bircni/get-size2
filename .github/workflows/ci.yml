@@ -11,7 +11,7 @@ on:
       - main
 
 jobs:
-  ci:
+  build:
     name: ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
@@ -25,23 +25,40 @@ jobs:
       - name: Cache dependencies
         uses: Swatinem/rust-cache@v2
 
-      - name: cargo build
-        run: cargo build
+      - name: Test
+        run: cargo test --all
 
-      - name: cargo test
-        run: cargo test
-
-      - name: cargo fmt
+      - name: Format code
         run: cargo fmt --all -- --check
 
-      - name: cargo clippy
+      - name: Lint code
         run: cargo clippy -- -D warnings
+
+  test:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Cache dependencies
+        uses: Swatinem/rust-cache@v2
+
+      - name: Debug build
+        run: cargo build
+
+      - name: Release build
+        run: cargo build --release
 
   cargo-deny:
     strategy:
       fail-fast: false
     name: cargo-deny
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: EmbarkStudios/cargo-deny-action@v1
@@ -52,7 +69,7 @@ jobs:
 
   publish-check:
     name: Publish Check
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: Swatinem/rust-cache@v2
@@ -64,15 +81,14 @@ jobs:
 
   typos:
     name: Typos
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: crate-ci/typos@v1.19.0
+      - uses: crate-ci/typos@master
 
   cargo-machete:
     runs-on: ubuntu-latest
     steps:
-      # - uses: Swatinem/rust-cache@v2
       - uses: actions/checkout@v4
       - name: Machete
         uses: bnjbvr/cargo-machete@main
