@@ -256,3 +256,29 @@ fn boxed_slice() {
     let boxed = vec![&1u8; 10].into_boxed_slice();
     assert_eq!(boxed.get_heap_size(), size_of::<&u8>() * boxed.len());
 }
+
+#[test]
+fn chrono() {
+    use chrono::TimeZone;
+
+    let timedelta = chrono::TimeDelta::seconds(5);
+    assert_eq!(timedelta.get_heap_size(), 0);
+
+    let datetime = chrono::Utc.with_ymd_and_hms(2014, 7, 8, 9, 10, 11).unwrap(); // `2014-07-08T09:10:11Z`
+    assert_eq!(datetime.naive_utc().get_heap_size(), 0);
+    assert_eq!(datetime.naive_utc().date().get_heap_size(), 0);
+    assert_eq!(datetime.naive_utc().time().get_heap_size(), 0);
+    assert_eq!(datetime.timezone().get_heap_size(), 0);
+    assert_eq!(datetime.fixed_offset().timezone().get_heap_size(), 0);
+    assert_eq!(datetime.get_heap_size(), 0);
+}
+
+#[test]
+fn chrono_tz() {
+    use chrono::TimeZone;
+
+    let datetime = chrono_tz::UTC
+        .with_ymd_and_hms(2014, 7, 8, 9, 10, 11)
+        .unwrap(); // `2014-07-08T09:10:11Z`
+    assert_eq!(datetime.offset().get_heap_size(), 0);
+}
