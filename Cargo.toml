@@ -3,7 +3,7 @@ resolver = "2"
 members = ["crates/get-size2", "crates/get-size-derive2"]
 
 [workspace.package]
-edition = "2021"
+edition = "2024"
 license = "MIT OR Apache-2.0"
 version = "0.1.4"
 authors = ["Denis Kerp", "Nicolas"]
