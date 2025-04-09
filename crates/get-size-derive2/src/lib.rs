@@ -115,10 +115,10 @@ pub fn derive_get_size(input: TokenStream) -> TokenStream {
         syn::Data::Enum(data_enum) => {
             if data_enum.variants.is_empty() {
                 // Empty enums are easy to implement.
-                let r#gen = quote! {
+                let generated = quote! {
                     impl ::get_size2::GetSize for #name {}
                 };
-                return r#gen.into();
+                return generated.into();
             }
 
             let mut cmds = Vec::with_capacity(data_enum.variants.len());
@@ -200,7 +200,7 @@ pub fn derive_get_size(input: TokenStream) -> TokenStream {
             }
 
             // Build the trait implementation
-            let r#gen = quote! {
+            let generated = quote! {
                 impl #impl_generics ::get_size2::GetSize for #name #ty_generics #where_clause {
                     fn get_heap_size(&self) -> usize {
                         let tracker = get_size2::StandardTracker::default();
@@ -220,7 +220,7 @@ pub fn derive_get_size(input: TokenStream) -> TokenStream {
                     }
                 }
             };
-            r#gen.into()
+            generated.into()
         }
         syn::Data::Union(_data_union) => {
             panic!("Deriving GetSize for unions is currently not supported.")
@@ -228,10 +228,10 @@ pub fn derive_get_size(input: TokenStream) -> TokenStream {
         syn::Data::Struct(data_struct) => {
             if data_struct.fields.is_empty() {
                 // Empty structs are easy to implement.
-                let r#gen = quote! {
+                let generated = quote! {
                     impl ::get_size2::GetSize for #name {}
                 };
-                return r#gen.into();
+                return generated.into();
             }
 
             let mut cmds = Vec::with_capacity(data_struct.fields.len());
@@ -279,7 +279,7 @@ pub fn derive_get_size(input: TokenStream) -> TokenStream {
             }
 
             // Build the trait implementation
-            let r#gen = quote! {
+            let generated = quote! {
                 impl #impl_generics ::get_size2::GetSize for #name #ty_generics #where_clause {
                     fn get_heap_size(&self) -> usize {
                         let tracker = get_size2::StandardTracker::default();
@@ -301,7 +301,7 @@ pub fn derive_get_size(input: TokenStream) -> TokenStream {
                     }
                 }
             };
-            r#gen.into()
+            generated.into()
         }
     }
 }
