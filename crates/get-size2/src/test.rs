@@ -290,3 +290,16 @@ fn url() {
     let url = url::Url::parse(URL_STR).unwrap();
     assert_eq!(url.get_heap_size(), URL_STR.len());
 }
+
+#[test]
+fn bytes() {
+    const BYTES_STR: &str = "Hello world";
+
+    let bytes = bytes::Bytes::from(BYTES_STR);
+    assert_eq!(bytes.get_heap_size(), BYTES_STR.len());
+
+    let mut bytes_mut = bytes::BytesMut::from(BYTES_STR);
+    assert_eq!(bytes_mut.get_heap_size(), BYTES_STR.len());
+    bytes_mut.truncate(0);
+    assert_eq!(bytes_mut.get_heap_size(), 0);
+}

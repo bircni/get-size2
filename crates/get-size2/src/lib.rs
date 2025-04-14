@@ -555,3 +555,17 @@ impl GetSize for url::Url {
         self.as_str().len()
     }
 }
+
+#[cfg(feature = "bytes")]
+impl GetSize for bytes::Bytes {
+    fn get_heap_size(&self) -> usize {
+        self.len()
+    }
+}
+
+#[cfg(feature = "bytes")]
+impl GetSize for bytes::BytesMut {
+    fn get_heap_size(&self) -> usize {
+        self.len()
+    }
+}
