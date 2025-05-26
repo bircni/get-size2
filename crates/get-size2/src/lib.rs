@@ -128,8 +128,7 @@ impl GetSize for Instant {}
 impl GetSize for Duration {}
 impl GetSize for SystemTime {}
 
-#[expect(clippy::needless_lifetimes, reason = "ok here")]
-impl<'a, T> GetSize for Cow<'a, T>
+impl<T> GetSize for Cow<'_, T>
 where
     T: ToOwned,
     <T as ToOwned>::Owned: GetSize,
