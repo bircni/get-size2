@@ -184,61 +184,58 @@ macro_rules! impl_size_set_no_capacity {
     };
 }
 
-macro_rules! impl_size_map {
-    ($name:ident) => {
-        impl<K, V> GetSize for $name<K, V>
-        where
-            K: GetSize,
-            V: GetSize,
-        {
-            fn get_heap_size(&self) -> usize {
-                let mut total = 0;
-
-                for (k, v) in self.iter() {
-                    // We assume that keys and value are hold inside the heap.
-                    total += GetSize::get_size(k);
-                    total += GetSize::get_size(v);
-                }
-
-                let additional: usize = self.capacity() - self.len();
-                total += additional * K::get_stack_size();
-                total += additional * V::get_stack_size();
-
-                total
-            }
-        }
-    };
-}
-
-macro_rules! impl_size_map_no_capacity {
-    ($name:ident) => {
-        impl<K, V> GetSize for $name<K, V>
-        where
-            K: GetSize,
-            V: GetSize,
-        {
-            fn get_heap_size(&self) -> usize {
-                let mut total = 0;
-
-                for (k, v) in self.iter() {
-                    // We assume that keys and value are hold inside the heap.
-                    total += GetSize::get_size(k);
-                    total += GetSize::get_size(v);
-                }
-
-                total
-            }
-        }
-    };
-}
-
-impl_size_map_no_capacity!(BTreeMap);
 impl_size_set_no_capacity!(BTreeSet);
 impl_size_set!(BinaryHeap);
-impl_size_map!(HashMap);
-impl_size_set!(HashSet);
 impl_size_set_no_capacity!(LinkedList);
 impl_size_set!(VecDeque);
+
+impl<K, V> GetSize for BTreeMap<K, V>
+where
+    K: GetSize,
+    V: GetSize,
+{
+    fn get_heap_size(&self) -> usize {
+        let mut total = 0;
+        for (k, v) in self {
+            total += GetSize::get_size(k);
+            total += GetSize::get_size(v);
+        }
+        total
+    }
+}
+
+impl<K, V, S: ::std::hash::BuildHasher> GetSize for HashMap<K, V, S>
+where
+    K: GetSize,
+    V: GetSize,
+{
+    fn get_heap_size(&self) -> usize {
+        let mut total = 0;
+        for (k, v) in self {
+            total += GetSize::get_size(k);
+            total += GetSize::get_size(v);
+        }
+        let additional: usize = self.capacity() - self.len();
+        total += additional * K::get_stack_size();
+        total += additional * V::get_stack_size();
+        total
+    }
+}
+
+impl<T, S: ::std::hash::BuildHasher> GetSize for HashSet<T, S>
+where
+    T: GetSize,
+{
+    fn get_heap_size(&self) -> usize {
+        let mut total = 0;
+        for v in self {
+            total += GetSize::get_size(v);
+        }
+        let additional: usize = self.capacity() - self.len();
+        total += additional * T::get_stack_size();
+        total
+    }
+}
 
 impl_size_set!(Vec);
 
