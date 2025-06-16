@@ -9,6 +9,7 @@ use std::num::{
     NonZeroI8, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI128, NonZeroIsize, NonZeroU8,
     NonZeroU16, NonZeroU32, NonZeroU64, NonZeroU128, NonZeroUsize,
 };
+use std::ops::Range;
 use std::rc::{Rc, Weak as RcWeak};
 use std::sync::atomic::{
     AtomicBool, AtomicI8, AtomicI16, AtomicI32, AtomicI64, AtomicIsize, AtomicU8, AtomicU16,
@@ -119,6 +120,7 @@ impl GetSize for AtomicUsize {}
 impl GetSize for Ordering {}
 
 impl GetSize for std::cmp::Ordering {}
+impl<I> GetSize for Range<I> {}
 
 impl GetSize for Infallible {}
 impl<T> GetSize for PhantomData<T> {}
