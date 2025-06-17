@@ -9,7 +9,7 @@ use std::num::{
     NonZeroI8, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI128, NonZeroIsize, NonZeroU8,
     NonZeroU16, NonZeroU32, NonZeroU64, NonZeroU128, NonZeroUsize,
 };
-use std::ops::Range;
+use std::ops::{Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive};
 use std::rc::{Rc, Weak as RcWeak};
 use std::sync::atomic::{
     AtomicBool, AtomicI8, AtomicI16, AtomicI32, AtomicI64, AtomicIsize, AtomicU8, AtomicU16,
@@ -120,7 +120,6 @@ impl GetSize for AtomicUsize {}
 impl GetSize for Ordering {}
 
 impl GetSize for std::cmp::Ordering {}
-impl<I> GetSize for Range<I> {}
 
 impl GetSize for Infallible {}
 impl<T> GetSize for PhantomData<T> {}
@@ -129,6 +128,41 @@ impl GetSize for PhantomPinned {}
 impl GetSize for Instant {}
 impl GetSize for Duration {}
 impl GetSize for SystemTime {}
+
+/// This macro is similar to the derive macro; Generate a `GetSize` impl that
+/// adds the heap sizes of the fields that are specified. However, since we want
+/// to implement this also for third-party types where we cannot add the derive
+/// macro, we go this way.
+///
+/// # Examples
+/// ```ignore
+/// impl_sum_of_fields!(Range, start, end);
+/// impl_sum_of_fields!(Person, name, address, phone);
+/// ```
+macro_rules! impl_sum_of_fields {
+    ($name:ident, $($field:ident),+) => {
+        impl<I: GetSize> GetSize for $name<I> {
+            #[inline]
+            fn get_heap_size(&self) -> usize {
+                0 $(+ self.$field.get_heap_size())+
+            }
+        }
+    };
+}
+
+impl_sum_of_fields!(Range, start, end);
+impl_sum_of_fields!(RangeFrom, start);
+impl_sum_of_fields!(RangeTo, end);
+impl_sum_of_fields!(RangeToInclusive, end);
+impl GetSize for RangeFull {}
+
+impl<I: GetSize> GetSize for RangeInclusive<I> {
+    #[inline]
+    fn get_heap_size(&self) -> usize {
+        // Custom impl since start and end fields are not public API
+        (*self.start()).get_heap_size() + (*self.end()).get_heap_size()
+    }
+}
 
 impl<T> GetSize for Cow<'_, T>
 where
