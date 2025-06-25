@@ -35,32 +35,59 @@ fn extract_ignored_generics(attr: &syn::Attribute) -> Vec<syn::PathSegment> {
         return collection;
     }
 
-    // Make sure it is a list.
+    // Make sure it is a list: #[get_size(...)]
     let Ok(list) = attr.meta.require_list() else {
         return collection;
     };
 
-    // Parse the nested meta.
-    // #[get_size(ignore(A, B))]
-    list.parse_nested_meta(|meta| {
-        // We only parse the ignore attributes.
+    // Parse the nested meta: #[get_size(ignore(...))] or #[get_size(ignore)]
+    let _ = list.parse_nested_meta(|meta| {
+        // Only handle `ignore`
         if !meta.path.is_ident("ignore") {
-            return Ok(()); // Just skip.
+            return Ok(()); // Skip unrelated
         }
 
+        // Handle the flag case: #[get_size(ignore)]
+        if meta.input.is_empty() {
+            // Do nothing – valid empty ignore
+            return Ok(());
+        }
+
+        // Handle the list case: #[get_size(ignore(A, B))]
         meta.parse_nested_meta(|meta| {
             for segment in meta.path.segments {
                 collection.push(segment);
             }
-
             Ok(())
         })?;
 
         Ok(())
-    })
-    .expect("Could not parse the ignore list.");
+    });
 
     collection
+}
+
+fn collect_all_ignored_generics(ast: &syn::DeriveInput) -> Vec<syn::PathSegment> {
+    let mut ignored = extract_ignored_generics_list(&ast.attrs);
+
+    match &ast.data {
+        syn::Data::Struct(data_struct) => {
+            for field in &data_struct.fields {
+                ignored.extend(extract_ignored_generics_list(&field.attrs));
+            }
+        }
+        syn::Data::Enum(data_enum) => {
+            for variant in &data_enum.variants {
+                ignored.extend(extract_ignored_generics_list(&variant.attrs));
+                for field in &variant.fields {
+                    ignored.extend(extract_ignored_generics_list(&field.attrs));
+                }
+            }
+        }
+        syn::Data::Union(_) => {}
+    }
+
+    ignored
 }
 
 // Add a bound `T: GetSize` to every type parameter T, unless we ignore it.
@@ -102,7 +129,8 @@ pub fn derive_get_size(input: TokenStream) -> TokenStream {
     let name = &ast.ident;
 
     // Extract all generics we shall ignore.
-    let ignored = extract_ignored_generics_list(&ast.attrs);
+    // let ignored = extract_ignored_generics_list(&ast.attrs);
+    let ignored = collect_all_ignored_generics(&ast);
 
     // Add a bound `T: GetSize` to every type parameter T.
     let generics = add_trait_bounds(ast.generics, &ignored);
@@ -163,15 +191,21 @@ pub fn derive_get_size(input: TokenStream) -> TokenStream {
                         });
                     }
                     syn::Fields::Named(named_fields) => {
-                        let num_fields = named_fields.named.len();
-
-                        let mut field_idents = Vec::with_capacity(num_fields);
-
-                        let mut field_cmds = Vec::with_capacity(num_fields);
+                        let mut field_idents = Vec::new();
+                        let mut field_cmds = Vec::new();
+                        let mut skipped_field = false;
 
                         for field in &named_fields.named {
                             let field_ident =
                                 field.ident.as_ref().expect("Could not get field ident.");
+
+                            let attr = StructFieldAttribute::from_attributes(&field.attrs)
+                                .expect("Could not parse field attributes.");
+
+                            if attr.ignore {
+                                skipped_field = true;
+                                continue;
+                            }
 
                             field_idents.push(field_ident);
 
@@ -181,16 +215,21 @@ pub fn derive_get_size(input: TokenStream) -> TokenStream {
                             });
                         }
 
+                        let pattern = if skipped_field {
+                            quote! { Self::#ident { #(#field_idents,)* .. } }
+                        } else {
+                            quote! { Self::#ident { #(#field_idents,)* } }
+                        };
+
                         cmds.push(quote! {
-                            Self::#ident{#(#field_idents,)*} => {
+                            #pattern => {
                                 let mut total = 0;
-
-                                #(#field_cmds)*;
-
+                                #(#field_cmds)*
                                 (total, tracker)
                             }
                         });
                     }
+
                     syn::Fields::Unit => {
                         cmds.push(quote! {
                             Self::#ident => (0, tracker),

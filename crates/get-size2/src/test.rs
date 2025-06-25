@@ -361,9 +361,9 @@ fn hashbrown() {
     let mut map = hashbrown::HashTable::new();
     assert_eq!(map.get_heap_size(), 0);
     map.insert_unique(
-        hasher.hash_one(&VALUE_STR),
+        hasher.hash_one(VALUE_STR),
         String::from(VALUE_STR),
-        |value| hasher.hash_one(&value),
+        |value| hasher.hash_one(value),
     );
     assert!(map.get_heap_size() >= size_of::<String>() + VALUE_STR.len());
 
@@ -389,5 +389,56 @@ fn smallvec() {
     assert_eq!(
         vec.get_heap_size(),
         ITEM_STR.len() + std::mem::size_of::<String>() * 3
+    );
+}
+
+#[test]
+fn test_enum() {
+    #[derive(GetSize)]
+    enum Enum {
+        A {
+            #[get_size(ignore)]
+            b: B,
+        },
+    }
+
+    struct B;
+}
+
+#[test]
+fn test_ignore_attribute_on_enum_field() {
+    #[derive(GetSize)]
+    enum WithIgnore {
+        A {
+            #[get_size(ignore)]
+            data: Vec<u8>,
+        },
+    }
+
+    #[derive(GetSize)]
+    enum WithoutIgnore {
+        A { data: Vec<u8> },
+    }
+
+    let heap_vec = vec![0u8; 100]; // known heap allocation
+    let with = WithIgnore::A {
+        data: heap_vec.clone(),
+    };
+    let without = WithoutIgnore::A { data: heap_vec };
+
+    let size_with_ignore = with.get_heap_size();
+    let size_without_ignore = without.get_heap_size();
+
+    println!("Size with ignore: {size_with_ignore}");
+    println!("Size without ignore: {size_without_ignore}");
+
+    // Size with ignore should be smaller than without
+    assert!(size_with_ignore < size_without_ignore);
+
+    // The ignored size should roughly match the allocation of Vec<u8>
+    let expected_size = size_without_ignore - size_with_ignore;
+    assert!(
+        expected_size >= 100,
+        "Expected heap size contribution from Vec<u8> to be at least 100"
     );
 }
