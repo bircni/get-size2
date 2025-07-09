@@ -442,3 +442,27 @@ fn test_ignore_attribute_on_enum_field() {
         "Expected heap size contribution from Vec<u8> to be at least 100"
     );
 }
+
+#[test]
+fn test_indexmap() {
+    use std::hash::RandomState;
+
+    const VALUE_STR: &str = "A very looooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooonng string.";
+
+    let hasher = RandomState::new();
+
+    let mut map = indexmap::IndexMap::with_capacity_and_hasher(1, hasher);
+    assert_eq!(map.get_heap_size(), 40);
+    map.insert(VALUE_STR, String::from(VALUE_STR));
+    assert!(map.get_heap_size() >= size_of::<(&'static str, String)>() + VALUE_STR.len());
+
+    let mut map = indexmap::IndexMap::<i32, String, RandomState>::default();
+    assert_eq!(map.get_heap_size(), 0);
+    map.insert(0, String::from(VALUE_STR));
+    assert!(map.get_heap_size() >= size_of::<(i32, String)>() + VALUE_STR.len());
+
+    let mut set = indexmap::IndexSet::<String, RandomState>::default();
+    assert_eq!(set.get_heap_size(), 0);
+    set.insert(String::from(VALUE_STR));
+    assert!(set.get_heap_size() >= size_of::<String>() + VALUE_STR.len());
+}

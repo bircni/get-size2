@@ -20,31 +20,35 @@ get-size-derive2 = { workspace = true, optional = true }
 bytes = { version = "1", default-features = false, optional = true }
 chrono = { version = "0.4", default-features = false, optional = true }
 chrono-tz = { version = "0.10", default-features = false, optional = true }
+compact_str = { version = "0.9", default-features = false, optional = true }
 hashbrown = { version = "0.15", default-features = false, optional = true }
+indexmap = { version = "2.10.0", default-features = false, optional = true }
 smallvec = { version = "1", default-features = false, optional = true }
 url = { version = "2", default-features = false, optional = true }
-compact_str = { version = "0.9", default-features = false, optional = true }
 
 [dev-dependencies]
 get-size2 = { path = ".", features = [
-    "bytes",
     "derive",
+    "bytes",
     "chrono",
     "chrono-tz",
     "compact-str",
     "hashbrown",
+    "indexmap",
     "smallvec",
     "url",
 ] }
 
 [features]
 default = []
-bytes = ["dep:bytes"]
 derive = ["get-size-derive2"]
+
+bytes = ["dep:bytes"]
 chrono = ["dep:chrono"]
 chrono-tz = ["dep:chrono-tz"]
 compact-str = ["dep:compact_str"]
 hashbrown = ["dep:hashbrown"]
+indexmap = ["dep:indexmap"]
 smallvec = ["dep:smallvec"]
 url = ["dep:url"]
 

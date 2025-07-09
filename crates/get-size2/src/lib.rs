@@ -697,3 +697,30 @@ impl GetSize for compact_str::CompactString {
         }
     }
 }
+
+#[cfg(feature = "indexmap")]
+impl<K, V, S> GetSize for indexmap::IndexMap<K, V, S>
+where
+    K: GetSize,
+    V: GetSize,
+    S: std::hash::BuildHasher,
+{
+    fn get_heap_size(&self) -> usize {
+        self.capacity() * <(K, V)>::get_stack_size()
+            + self
+                .iter()
+                .map(|(k, v)| k.get_heap_size() + v.get_heap_size())
+                .sum::<usize>()
+    }
+}
+
+#[cfg(feature = "indexmap")]
+impl<T, S> GetSize for indexmap::IndexSet<T, S>
+where
+    T: GetSize,
+{
+    fn get_heap_size(&self) -> usize {
+        self.capacity() * <T>::get_stack_size()
+            + self.iter().map(GetSize::get_heap_size).sum::<usize>()
+    }
+}
