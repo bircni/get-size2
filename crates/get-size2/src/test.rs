@@ -536,3 +536,25 @@ fn arc_rc_bookkeeping_size() {
     assert_eq!(rc_string.get_heap_size(), expected_size);
     assert_eq!(arc_string.get_heap_size(), expected_size);
 }
+
+#[test]
+fn boxed_slice_size() {
+    use std::mem::size_of;
+    
+    // Test with simple u64 values
+    let vec = vec![1u64, 2u64, 3u64];
+    let boxed_slice: Box<[u64]> = vec.into_boxed_slice();
+    
+    // Box<[u64]> should allocate space for 3 u64 values
+    let expected_size = 3 * size_of::<u64>();
+    assert_eq!(boxed_slice.get_heap_size(), expected_size);
+    
+    // Test with String values that have their own heap allocations
+    let strings = vec!["Hello".to_string(), "World".to_string()];
+    let string_heap_sizes: usize = strings.iter().map(|s| s.get_heap_size()).sum();
+    let boxed_strings: Box<[String]> = strings.into_boxed_slice();
+    
+    // Should include space for the String structs plus their heap allocations
+    let expected_size = 2 * size_of::<String>() + string_heap_sizes;
+    assert_eq!(boxed_strings.get_heap_size(), expected_size);
+}
