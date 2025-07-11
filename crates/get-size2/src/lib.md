@@ -80,9 +80,9 @@ fn main() {
 
   // From a technical point of view, Arcs own the data they reference.
   // Given so their heap data gets accounted for too.
-  // Note that an Arc does store the String's stack bytes also inside the heap.
+  // Note that an Arc does store the String's stack bytes also inside the heap, plus Arc bookkeeping overhead.
   let value = Arc::new(value);
-  assert_eq!(value.get_heap_size(), std::mem::size_of::<String>() + 5);
+  assert_eq!(value.get_heap_size(), std::mem::size_of::<String>() + 5 + 2 * std::mem::size_of::<usize>());
 }
 ```
 
@@ -241,8 +241,8 @@ fn main() {
     shared_data,
   };
 
-  // Note that Arc does also store the Vec's stack data on the heap.
-  assert_eq!(primary_data.get_heap_size(), Vec::<u8>::get_stack_size() + 1024);
+  // Note that Arc does also store the Vec's stack data on the heap, plus Arc bookkeeping overhead.
+  assert_eq!(primary_data.get_heap_size(), Vec::<u8>::get_stack_size() + 1024 + 2 * std::mem::size_of::<usize>());
   assert_eq!(secondary_data.get_heap_size(), 0);
 }
 ```

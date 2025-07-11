@@ -145,8 +145,8 @@ fn main() {
     shared_data,
   };
 
-  // Note that Arc does also store the Vec's stack data on the heap.
-  assert_eq!(primary_data.get_heap_size(), Vec::<u8>::get_stack_size() + 1024);
+  // Note that Arc does also store the Vec's stack data on the heap, plus Arc bookkeeping overhead.
+  assert_eq!(primary_data.get_heap_size(), Vec::<u8>::get_stack_size() + 1024 + 2 * std::mem::size_of::<usize>());
   assert_eq!(secondary_data.get_heap_size(), 0);
 }
 ```
