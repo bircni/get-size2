@@ -397,7 +397,12 @@ where
         let addr = Self::as_ptr(&strong_ref);
 
         if tracker.track(addr, strong_ref) {
-            GetSize::get_size_with_tracker(&**self, tracker)
+            // RcInner contains the T data plus bookkeeping (strong count + weak count)
+            // The T value itself is stored on the heap within RcInner
+            let t_stack_size = T::get_stack_size();
+            let (t_heap_size, tracker) = GetSize::get_heap_size_with_tracker(&**self, tracker);
+            let bookkeeping_size = 2 * std::mem::size_of::<usize>();
+            (t_stack_size + t_heap_size + bookkeeping_size, tracker)
         } else {
             (0, tracker)
         }
@@ -424,7 +429,12 @@ where
         let addr = Self::as_ptr(&strong_ref);
 
         if tracker.track(addr, strong_ref) {
-            GetSize::get_size_with_tracker(&**self, tracker)
+            // ArcInner contains the T data plus bookkeeping (strong count + weak count)
+            // The T value itself is stored on the heap within ArcInner
+            let t_stack_size = T::get_stack_size();
+            let (t_heap_size, tracker) = GetSize::get_heap_size_with_tracker(&**self, tracker);
+            let bookkeeping_size = 2 * std::mem::size_of::<usize>();
+            (t_stack_size + t_heap_size + bookkeeping_size, tracker)
         } else {
             (0, tracker)
         }
@@ -581,13 +591,19 @@ impl GetSize for Box<str> {
 
 impl GetSize for Rc<str> {
     fn get_heap_size(&self) -> usize {
-        self.len()
+        // Rc<str> contains the str data plus bookkeeping (strong count + weak count)
+        let str_size = self.len();
+        let bookkeeping_size = 2 * std::mem::size_of::<usize>();
+        str_size + bookkeeping_size
     }
 }
 
 impl GetSize for Arc<str> {
     fn get_heap_size(&self) -> usize {
-        self.len()
+        // Arc<str> contains the str data plus bookkeeping (strong count + weak count)
+        let str_size = self.len();
+        let bookkeeping_size = 2 * std::mem::size_of::<usize>();
+        str_size + bookkeeping_size
     }
 }
 

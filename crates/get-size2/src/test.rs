@@ -268,10 +268,14 @@ fn boxed_str() {
     assert_eq!(boxed.get_heap_size(), size_of::<u8>() * boxed.len());
 
     let rc: Rc<str> = "a".to_owned().into();
-    assert_eq!(rc.get_heap_size(), size_of::<u8>() * boxed.len());
+    // Rc includes the str data plus bookkeeping
+    let expected_rc_size = boxed.len() + 2 * size_of::<usize>();
+    assert_eq!(rc.get_heap_size(), expected_rc_size);
 
     let arc: Arc<str> = "a".to_owned().into();
-    assert_eq!(arc.get_heap_size(), size_of::<u8>() * boxed.len());
+    // Arc includes the str data plus bookkeeping  
+    let expected_arc_size = boxed.len() + 2 * size_of::<usize>();
+    assert_eq!(arc.get_heap_size(), expected_arc_size);
 }
 
 #[test]
@@ -502,4 +506,33 @@ fn test_indexmap() {
     assert_eq!(set.get_heap_size(), 0);
     set.insert(String::from(VALUE_STR));
     assert!(set.get_heap_size() >= size_of::<String>() + VALUE_STR.len());
+}
+
+#[test]
+fn arc_rc_bookkeeping_size() {
+    use std::mem::size_of;
+    
+    // Test with a simple u64 value to isolate the bookkeeping overhead
+    let value = 42u64;
+    let boxed = Box::new(value);
+    let rc = Rc::new(value);
+    let arc = Arc::new(value);
+    
+    // Box should only account for the size of u64
+    assert_eq!(boxed.get_heap_size(), size_of::<u64>());
+    
+    // Rc and Arc should include the T value size plus bookkeeping (strong count + weak count = 2 * usize)
+    let bookkeeping_size = 2 * size_of::<usize>();
+    assert_eq!(rc.get_heap_size(), size_of::<u64>() + bookkeeping_size);
+    assert_eq!(arc.get_heap_size(), size_of::<u64>() + bookkeeping_size);
+    
+    // Test with a type that has heap allocation to ensure we still account for nested data
+    let string_data = "Hello, World!".to_string();
+    let rc_string = Rc::new(string_data.clone());
+    let arc_string = Arc::new(string_data.clone());
+    
+    // The String struct size plus its heap allocation plus bookkeeping
+    let expected_size = String::get_stack_size() + string_data.get_heap_size() + bookkeeping_size;
+    assert_eq!(rc_string.get_heap_size(), expected_size);
+    assert_eq!(arc_string.get_heap_size(), expected_size);
 }
