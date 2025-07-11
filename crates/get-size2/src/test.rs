@@ -273,7 +273,7 @@ fn boxed_str() {
     assert_eq!(rc.get_heap_size(), expected_rc_size);
 
     let arc: Arc<str> = "a".to_owned().into();
-    // Arc includes the str data plus bookkeeping  
+    // Arc includes the str data plus bookkeeping
     let expected_arc_size = boxed.len() + 2 * size_of::<usize>();
     assert_eq!(arc.get_heap_size(), expected_arc_size);
 }
@@ -511,26 +511,26 @@ fn test_indexmap() {
 #[test]
 fn arc_rc_bookkeeping_size() {
     use std::mem::size_of;
-    
+
     // Test with a simple u64 value to isolate the bookkeeping overhead
     let value = 42u64;
     let boxed = Box::new(value);
     let rc = Rc::new(value);
     let arc = Arc::new(value);
-    
+
     // Box should only account for the size of u64
     assert_eq!(boxed.get_heap_size(), size_of::<u64>());
-    
+
     // Rc and Arc should include the T value size plus bookkeeping (strong count + weak count = 2 * usize)
     let bookkeeping_size = 2 * size_of::<usize>();
     assert_eq!(rc.get_heap_size(), size_of::<u64>() + bookkeeping_size);
     assert_eq!(arc.get_heap_size(), size_of::<u64>() + bookkeeping_size);
-    
+
     // Test with a type that has heap allocation to ensure we still account for nested data
     let string_data = "Hello, World!".to_string();
     let rc_string = Rc::new(string_data.clone());
     let arc_string = Arc::new(string_data.clone());
-    
+
     // The String struct size plus its heap allocation plus bookkeeping
     let expected_size = String::get_stack_size() + string_data.get_heap_size() + bookkeeping_size;
     assert_eq!(rc_string.get_heap_size(), expected_size);
@@ -540,20 +540,20 @@ fn arc_rc_bookkeeping_size() {
 #[test]
 fn boxed_slice_size() {
     use std::mem::size_of;
-    
+
     // Test with simple u64 values
     let vec = vec![1u64, 2u64, 3u64];
     let boxed_slice: Box<[u64]> = vec.into_boxed_slice();
-    
+
     // Box<[u64]> should allocate space for 3 u64 values
     let expected_size = 3 * size_of::<u64>();
     assert_eq!(boxed_slice.get_heap_size(), expected_size);
-    
+
     // Test with String values that have their own heap allocations
     let strings = vec!["Hello".to_string(), "World".to_string()];
     let string_heap_sizes: usize = strings.iter().map(|s| s.get_heap_size()).sum();
     let boxed_strings: Box<[String]> = strings.into_boxed_slice();
-    
+
     // Should include space for the String structs plus their heap allocations
     let expected_size = 2 * size_of::<String>() + string_heap_sizes;
     assert_eq!(boxed_strings.get_heap_size(), expected_size);
