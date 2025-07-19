@@ -24,6 +24,7 @@ compact_str = { version = "0.9", default-features = false, optional = true }
 hashbrown = { version = "0.15", default-features = false, optional = true }
 indexmap = { version = "2.10.0", default-features = false, optional = true }
 smallvec = { version = "1", default-features = false, optional = true }
+thin-vec = { version = "0.2", default-features = false, optional = true }
 url = { version = "2", default-features = false, optional = true }
 
 [dev-dependencies]
@@ -36,6 +37,7 @@ get-size2 = { path = ".", features = [
     "hashbrown",
     "indexmap",
     "smallvec",
+    "thin-vec",
     "url",
 ] }
 
@@ -50,6 +52,7 @@ compact-str = ["dep:compact_str"]
 hashbrown = ["dep:hashbrown"]
 indexmap = ["dep:indexmap"]
 smallvec = ["dep:smallvec"]
+thin-vec = ["dep:thin-vec"]
 url = ["dep:url"]
 
 [package.metadata.docs.rs]

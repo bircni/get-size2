@@ -400,6 +400,30 @@ fn smallvec() {
 }
 
 #[test]
+fn thin_vec() {
+    const ITEM_STR: &str = "Hello world";
+
+    assert_eq!(thin_vec::ThinVec::<String>::default().get_heap_size(), 0);
+
+    let mut vec = thin_vec::ThinVec::<String>::from([String::new(), String::from(ITEM_STR)]);
+    assert_eq!(
+        vec.get_heap_size(),
+        ITEM_STR.len()
+            + std::mem::size_of::<String>() * vec.capacity()
+            + std::mem::size_of::<usize>() * 2
+    );
+
+    vec.shrink_to_fit();
+
+    assert_eq!(
+        vec.get_heap_size(),
+        ITEM_STR.len()
+            + std::mem::size_of::<String>() * vec.len()
+            + std::mem::size_of::<usize>() * 2
+    );
+}
+
+#[test]
 fn test_enum() {
     #[derive(GetSize)]
     enum Enum {

@@ -690,6 +690,32 @@ where
     }
 }
 
+#[cfg(feature = "thin-vec")]
+impl<T> GetSize for thin_vec::ThinVec<T>
+where
+    T: GetSize,
+{
+    fn get_heap_size(&self) -> usize {
+        if self.capacity() == 0 {
+            // If it's the singleton we might not be a heap pointer.
+            return 0;
+        }
+
+        // The capacity and length are stored on the heap.
+        let mut total = std::mem::size_of::<usize>() * 2;
+
+        for v in self.iter() {
+            // We assume that value are hold inside the heap.
+            total += GetSize::get_size(v);
+        }
+
+        let additional: usize = self.capacity() - self.len();
+        total += additional * T::get_stack_size();
+
+        total
+    }
+}
+
 #[cfg(feature = "compact-str")]
 impl GetSize for compact_str::CompactString {
     fn get_heap_size(&self) -> usize {
