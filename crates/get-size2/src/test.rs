@@ -388,6 +388,13 @@ fn smallvec() {
 
     assert_eq!(
         vec.get_heap_size(),
+        ITEM_STR.len() + std::mem::size_of::<String>() * vec.capacity()
+    );
+
+    vec.shrink_to_fit();
+
+    assert_eq!(
+        vec.get_heap_size(),
         ITEM_STR.len() + std::mem::size_of::<String>() * 3
     );
 }

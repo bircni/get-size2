@@ -683,7 +683,10 @@ where
             return self.iter().map(GetSize::get_heap_size).sum();
         }
 
-        self.iter().map(GetSize::get_size).sum()
+        let mut total = self.iter().map(GetSize::get_size).sum();
+        let additional: usize = self.capacity() - self.len();
+        total += additional * A::Item::get_stack_size();
+        total
     }
 }
 
