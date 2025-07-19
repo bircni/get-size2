@@ -339,14 +339,20 @@ fn once_lock_get_size() {
     );
 }
 
+#[test]
 fn compact_str() {
     const STR: &str = "Hello world";
-    const LONG_STR: &str = "A much looooonger string.";
+    const LONG_STR: &str = "A much looooonger string that exceeds 24 bytes.";
 
     let value = compact_str::CompactString::from(STR);
     assert_eq!(value.get_heap_size(), 0);
 
-    let value = compact_str::CompactString::from(LONG_STR);
+    let mut value = compact_str::CompactString::from(LONG_STR);
+    assert_eq!(value.get_heap_size(), value.capacity());
+
+    value.shrink_to_fit();
+
+    assert_eq!(value.len(), value.capacity());
     assert_eq!(value.get_heap_size(), LONG_STR.len());
 }
 

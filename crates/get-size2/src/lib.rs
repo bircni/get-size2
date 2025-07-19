@@ -691,7 +691,7 @@ where
 impl GetSize for compact_str::CompactString {
     fn get_heap_size(&self) -> usize {
         if self.is_heap_allocated() {
-            self.len()
+            self.capacity()
         } else {
             0
         }
