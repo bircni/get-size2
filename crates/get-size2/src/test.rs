@@ -260,6 +260,12 @@ fn boxed_slice() {
 
     let boxed = vec![&1u8; 10].into_boxed_slice();
     assert_eq!(boxed.get_heap_size(), size_of::<&u8>() * boxed.len());
+
+    let rc = Rc::<[u8]>::from([1u8; 10]);
+    assert_eq!(rc.get_heap_size(), size_of::<u8>() * rc.len());
+
+    let arc = Arc::<[u8]>::from([1u8; 10]);
+    assert_eq!(arc.get_heap_size(), size_of::<u8>() * arc.len());
 }
 
 #[test]

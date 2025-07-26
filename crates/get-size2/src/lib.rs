@@ -579,9 +579,27 @@ impl GetSize for Box<str> {
     }
 }
 
+impl<T> GetSize for Rc<[T]>
+where
+    T: GetSize,
+{
+    fn get_heap_size(&self) -> usize {
+        self.iter().map(GetSize::get_size).sum()
+    }
+}
+
 impl GetSize for Rc<str> {
     fn get_heap_size(&self) -> usize {
         self.len()
+    }
+}
+
+impl<T> GetSize for Arc<[T]>
+where
+    T: GetSize,
+{
+    fn get_heap_size(&self) -> usize {
+        self.iter().map(GetSize::get_size).sum()
     }
 }
 
