@@ -171,7 +171,7 @@ impl<I: GetSize> GetSize for RangeInclusive<I> {
 
 impl<T> GetSize for Cow<'_, T>
 where
-    T: ToOwned,
+    T: ToOwned + ?Sized,
     <T as ToOwned>::Owned: GetSize,
 {
     fn get_heap_size(&self) -> usize {

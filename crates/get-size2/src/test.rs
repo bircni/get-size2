@@ -275,6 +275,17 @@ fn boxed_str() {
 }
 
 #[test]
+fn cow() {
+    use std::borrow::Cow;
+
+    let cow: Cow<'_, str> = Cow::Borrowed("Hello world");
+    assert_eq!(cow.get_heap_size(), 0);
+
+    let cow: Cow<'_, str> = Cow::Owned("Hello world".into());
+    assert_eq!(cow.get_heap_size(), 11);
+}
+
+#[test]
 fn chrono() {
     use chrono::TimeZone;
 
