@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
+## [0.7.0](https://github.com/bircni/get-size2/compare/0.6.3..0.7.0) - 2025-09-20
+
+### Features
+
+-  [**breaking**]Keep size tracker alive through recursive calls to `get_heap_size_with_tracker` (#34) - ([39a9baf](https://github.com/bircni/get-size2/commit/39a9bafa76f495bf526bbc39341843bb3e03c1ec)) - Ibraheem Ahmed
+
+### Miscellaneous Chores
+
+- set correct version for get-size-derive - ([d3abc1d](https://github.com/bircni/get-size2/commit/d3abc1d9e9f91c2d41f7f2faf0505188909a0721)) - Nicolas
+
 ## [0.6.3](https://github.com/bircni/get-size2/compare/0.6.2..0.6.3) - 2025-09-19
 
 ### Features

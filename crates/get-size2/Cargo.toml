@@ -22,7 +22,7 @@ chrono = { version = "0.4", default-features = false, optional = true }
 chrono-tz = { version = "0.10", default-features = false, optional = true }
 compact_str = { version = "0.9", default-features = false, optional = true }
 hashbrown = { version = "0.16", default-features = false, optional = true }
-indexmap = { version = "2.10.0", default-features = false, optional = true }
+indexmap = { version = "2.10", default-features = false, optional = true }
 smallvec = { version = "1", default-features = false, optional = true }
 thin-vec = { version = "0.2", default-features = false, optional = true }
 url = { version = "2", default-features = false, optional = true }
