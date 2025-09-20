@@ -250,6 +250,25 @@ fn derive_newtype() {
 }
 
 #[test]
+fn tracker() {
+    #[derive(GetSize, Clone)]
+    struct RcWrapper(Rc<i32>);
+
+    let shared = RcWrapper(Rc::new(5));
+
+    let (size, _) =
+        (shared.clone(), shared.clone()).get_heap_size_with_tracker(StandardTracker::new());
+    assert_eq!(size, shared.get_heap_size());
+
+    let vec = vec![shared.clone(); 100];
+    let (size, _) = vec.get_heap_size_with_tracker(StandardTracker::new());
+    assert_eq!(
+        size,
+        (std::mem::size_of::<Rc<i32>>() * 100) + shared.get_heap_size()
+    );
+}
+
+#[test]
 fn boxed_slice() {
     use std::mem::size_of;
     let boxed = vec![1u8; 10].into_boxed_slice();
