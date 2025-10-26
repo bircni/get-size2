@@ -125,7 +125,7 @@ pub fn derive_get_size(input: TokenStream) -> TokenStream {
     // that we can manipulate
     let ast: syn::DeriveInput = syn::parse(input).expect("Could not parse tokens");
 
-    // The name of the sruct.
+    // The name of the struct.
     let name = &ast.ident;
 
     // Extract all generics we shall ignore.

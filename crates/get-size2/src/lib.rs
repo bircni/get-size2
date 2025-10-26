@@ -2,6 +2,7 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
 use std::borrow::Cow;
+use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet, BinaryHeap, HashMap, HashSet, LinkedList, VecDeque};
 use std::convert::Infallible;
 use std::marker::{PhantomData, PhantomPinned};
@@ -460,6 +461,24 @@ where
     fn get_heap_size_with_tracker<Tr: GetSizeTracker>(&self, tracker: Tr) -> (usize, Tr) {
         // We assume that a `RwLock` holds its data at the stack.
         T::get_heap_size_with_tracker(&*(self.read().expect("RwLock is poisoned")), tracker)
+    }
+}
+
+impl<T> GetSize for RefCell<T>
+where
+    T: GetSize,
+{
+    fn get_heap_size_with_tracker<Tr: GetSizeTracker>(&self, tracker: Tr) -> (usize, Tr) {
+        // We assume that a `RefCell` holds its data at the stack.
+        // Use try_borrow to avoid panicking if the RefCell is already mutably borrowed
+        match self.try_borrow() {
+            Ok(borrowed) => T::get_heap_size_with_tracker(&*borrowed, tracker),
+            Err(_) => {
+                // If the RefCell is already mutably borrowed, we cannot safely access it.
+                // Return 0 for heap size to avoid panic, though this is a rare edge case.
+                (0, tracker)
+            }
+        }
     }
 }
 

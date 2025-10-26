@@ -12,7 +12,7 @@ authors = ["Denis Kerp", "Nicolas"]
 get-size-derive2 = { version = "0.7.0", path = "crates/get-size-derive2" }
 syn = "2"
 quote = "1"
-attribute-derive = "0.10.3"
+attribute-derive = "0.10"
 
 [workspace.lints.rust]
 unsafe_code = "deny"
