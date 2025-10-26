@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
+## [0.7.1](https://github.com/bircni/get-size2/compare/0.7.0..0.7.1) - 2025-10-26
+
+### Bug Fixes
+
+- add missing LICENSE file in the published get-size2 crate and update authors (#36) - ([b6f2970](https://github.com/bircni/get-size2/commit/b6f29700a268daa9e3fd1954bfe04906e43d90f7)) - Ben Beasley
+
+### Features
+
+- implement GetSize for RefCell<T> - ([8ee6af7](https://github.com/bircni/get-size2/commit/8ee6af749625263b77c4c0a1c6106f3109a49367)) - Nicolas
+
 ## [0.7.0](https://github.com/bircni/get-size2/compare/0.6.3..0.7.0) - 2025-09-20
 
 ### Features
