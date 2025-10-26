@@ -1,5 +1,6 @@
 #![expect(dead_code, clippy::unwrap_used, reason = "This is a test module")]
 
+use std::cell::RefCell;
 use std::mem::size_of;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -538,4 +539,76 @@ fn test_indexmap() {
     assert_eq!(set.get_heap_size(), 0);
     set.insert(String::from(VALUE_STR));
     assert!(set.get_heap_size() >= size_of::<String>() + VALUE_STR.len());
+}
+
+#[test]
+fn refcell() {
+    // Test RefCell with a simple type
+    let cell = RefCell::new(42u32);
+    assert_eq!(cell.get_heap_size(), 0);
+    assert_eq!(cell.get_size(), size_of::<RefCell<u32>>());
+
+    // Test RefCell with a String (has heap allocation)
+    let cell = RefCell::new(String::from("Hello, World!"));
+    assert_eq!(cell.get_heap_size(), 13); // "Hello, World!" is 13 bytes
+    assert_eq!(cell.get_size(), size_of::<RefCell<String>>() + 13);
+
+    // Test RefCell with an empty String
+    let cell = RefCell::new(String::new());
+    assert_eq!(cell.get_heap_size(), 0);
+
+    // Test RefCell with a Vec
+    let vec_data = vec![1u32, 2, 3, 4, 5];
+    let expected_heap_size = vec_data.capacity() * size_of::<u32>();
+    let cell = RefCell::new(vec_data);
+    assert_eq!(cell.get_heap_size(), expected_heap_size);
+    assert_eq!(
+        cell.get_size(),
+        size_of::<RefCell<Vec<u32>>>() + expected_heap_size
+    );
+
+    // Test nested RefCell
+    let inner = RefCell::new(String::from("nested"));
+    let outer = RefCell::new(inner);
+    // The outer RefCell should report the heap size of the String
+    assert_eq!(outer.get_heap_size(), 6); // "nested" is 6 bytes
+
+    // Test that we can get size while RefCell is borrowed
+    let cell = RefCell::new(String::from("borrowed"));
+    {
+        let _borrowed = cell.borrow();
+        // This should still work even though the cell is borrowed
+        assert_eq!(cell.get_heap_size(), 8); // "borrowed" is 8 bytes
+    }
+    // Also test after the borrow is released
+    assert_eq!(cell.get_heap_size(), 8);
+
+    // Test the edge case where RefCell is mutably borrowed
+    let cell = RefCell::new(String::from("mutable"));
+    {
+        let mut _borrowed = cell.borrow_mut();
+        // While mutably borrowed, we cannot call get_heap_size on the same thread
+        // without triggering the try_borrow failure path.
+        // The implementation handles it gracefully by returning 0.
+    }
+    // After releasing the mutable borrow, it should work normally
+    assert_eq!(cell.get_heap_size(), 7); // "mutable" is 7 bytes
+
+    // Test RefCell with a Box
+    let boxed = Box::new(vec![1u32, 2, 3]);
+    let cell = RefCell::new(boxed);
+    // The Box itself is on the heap, plus the Vec's allocation
+    let expected_heap_size = size_of::<Vec<u32>>() + 3 * size_of::<u32>();
+    assert_eq!(cell.get_heap_size(), expected_heap_size);
+
+    // Test RefCell with StandardTracker
+    let cell = RefCell::new(String::from("tracker"));
+    let (heap_size, _tracker) = cell.get_heap_size_with_tracker(StandardTracker::new());
+    assert_eq!(heap_size, 7); // "tracker" is 7 bytes
+    assert_eq!(heap_size, cell.get_heap_size());
+
+    // Test RefCell with unit type
+    let cell = RefCell::new(());
+    assert_eq!(cell.get_heap_size(), 0);
+    assert_eq!(cell.get_size(), size_of::<RefCell<()>>());
 }
