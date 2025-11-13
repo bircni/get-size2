@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
+## [0.7.2](https://github.com/bircni/get-size2/compare/0.7.1..0.7.2) - 2025-11-13
+
+### Documentation
+
+- Update docs with correct links - ([b234d70](https://github.com/bircni/get-size2/commit/b234d70ece314ae80cc993f077f15a8fc0dd583d)) - Nicolas
+
 ## [0.7.1](https://github.com/bircni/get-size2/compare/0.7.0..0.7.1) - 2025-10-26
 
 ### Bug Fixes
