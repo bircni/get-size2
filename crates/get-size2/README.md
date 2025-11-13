@@ -1,8 +1,8 @@
 # get-size
 
 [![Crates.io](https://img.shields.io/crates/v/get-size2)](https://crates.io/crates/get-size2)
-[![docs.rs](https://img.shields.io/docsrs/get-size)](https://docs.rs/get-size)
-[![MIT licensed](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/DKerp/get-size/blob/main/LICENSE)
+[![docs.rs](https://img.shields.io/docsrs/get-size2)](https://docs.rs/get-size2)
+[![MIT licensed](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/bircksn/get-size2/blob/main/crates/get-size2/LICENSE)
 
 > This repo is a fork of get-size, as it is not maintained anymore. The original repo can be found [here](https://github.com/DKerp/get-size)
 
@@ -94,5 +94,5 @@ This library is licensed under the [MIT license](http://opensource.org/licenses/
 
 Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in this library by you, shall be licensed as MIT, without any additional terms or conditions.
 
-[`GetSize`]: https://docs.rs/get-size/latest/get_size/trait.GetSize.html
-[`get_heap_size`]: https://docs.rs/get-size/latest/get_size/trait.GetSize.html#method.get_heap_size
+[`GetSize`]: https://docs.rs/get-size2/latest/get_size2/trait.GetSize.html
+[`get_heap_size`]: https://docs.rs/get-size2/latest/get_size2/trait.GetSize.html#method.get_heap_size

@@ -10,7 +10,7 @@ The derive macro will provide a custom implementation of the [`get_heap_size`] m
 
 Note that the derive macro _does not support unions_. You have to manually implement it for them.
 
-### Examples
+## Examples
 
 Deriving [`GetSize`] for a struct:
 
@@ -309,5 +309,5 @@ This library is licensed under the [MIT license](http://opensource.org/licenses/
 
 Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in this library by you, shall be licensed as MIT, without any additional terms or conditions.
 
-[`GetSize`]: https://docs.rs/get-size/latest/get_size/trait.GetSize.html
-[`get_heap_size`]: https://docs.rs/get-size/latest/get_size/trait.GetSize.html#method.get_heap_size
+[`GetSize`]: https://docs.rs/get-size2/latest/get_size2/trait.GetSize.html
+[`get_heap_size`]: https://docs.rs/get-size2/latest/get_size2/trait.GetSize.html#method.get_heap_size
