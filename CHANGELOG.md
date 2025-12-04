@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
+## [0.7.3](https://github.com/bircni/get-size2/compare/0.7.2..0.7.3) - 2025-12-04
+
+### Features
+
+- Implement GetSize for ordermap - ([662fb2e](https://github.com/bircni/get-size2/commit/662fb2e70aed767aba2a49d2bab0bedfc36ff930)) - Jack O'Connor
+
 ## [0.7.2](https://github.com/bircni/get-size2/compare/0.7.1..0.7.2) - 2025-11-13
 
 ### Documentation
