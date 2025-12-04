@@ -542,6 +542,30 @@ fn test_indexmap() {
 }
 
 #[test]
+fn test_ordermap() {
+    use std::hash::RandomState;
+
+    const VALUE_STR: &str = "A very looooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooonng string.";
+
+    let hasher = RandomState::new();
+
+    let mut map = ordermap::OrderMap::with_capacity_and_hasher(1, hasher);
+    assert_eq!(map.get_heap_size(), 40);
+    map.insert(VALUE_STR, String::from(VALUE_STR));
+    assert!(map.get_heap_size() >= size_of::<(&'static str, String)>() + VALUE_STR.len());
+
+    let mut map = ordermap::OrderMap::<i32, String, RandomState>::default();
+    assert_eq!(map.get_heap_size(), 0);
+    map.insert(0, String::from(VALUE_STR));
+    assert!(map.get_heap_size() >= size_of::<(i32, String)>() + VALUE_STR.len());
+
+    let mut set = ordermap::OrderSet::<String, RandomState>::default();
+    assert_eq!(set.get_heap_size(), 0);
+    set.insert(String::from(VALUE_STR));
+    assert!(set.get_heap_size() >= size_of::<String>() + VALUE_STR.len());
+}
+
+#[test]
 fn refcell() {
     // Test RefCell with a simple type
     let cell = RefCell::new(42u32);

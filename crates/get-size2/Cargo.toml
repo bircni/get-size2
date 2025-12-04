@@ -23,6 +23,7 @@ chrono-tz = { version = "0.10", default-features = false, optional = true }
 compact_str = { version = "0.9", default-features = false, optional = true }
 hashbrown = { version = "0.16", default-features = false, optional = true }
 indexmap = { version = "2.10", default-features = false, optional = true }
+ordermap = { version = "1.0", default-features = false, optional = true }
 smallvec = { version = "1", default-features = false, optional = true }
 thin-vec = { version = "0.2", default-features = false, optional = true }
 url = { version = "2", default-features = false, optional = true }
@@ -36,6 +37,7 @@ get-size2 = { path = ".", features = [
     "compact-str",
     "hashbrown",
     "indexmap",
+    "ordermap",
     "smallvec",
     "thin-vec",
     "url",
@@ -51,6 +53,7 @@ chrono-tz = ["dep:chrono-tz"]
 compact-str = ["dep:compact_str"]
 hashbrown = ["dep:hashbrown"]
 indexmap = ["dep:indexmap"]
+ordermap = ["dep:ordermap"]
 smallvec = ["dep:smallvec"]
 thin-vec = ["dep:thin-vec"]
 url = ["dep:url"]
