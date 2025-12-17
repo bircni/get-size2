@@ -117,6 +117,7 @@ fn add_trait_bounds(mut generics: syn::Generics, ignored: &Vec<syn::PathSegment>
 #[expect(
     clippy::too_many_lines,
     clippy::missing_panics_doc,
+    clippy::expect_used,
     reason = "Needs refactoring"
 )]
 #[proc_macro_derive(GetSize, attributes(get_size))]
