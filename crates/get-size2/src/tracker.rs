@@ -23,6 +23,10 @@ impl<T: GetSizeTracker> GetSizeTracker for Box<T> {
 }
 
 impl<T: GetSizeTracker> GetSizeTracker for Mutex<T> {
+    #[expect(
+        clippy::expect_used,
+        reason = "This is required to implement GetSizeTracker for Mutex<T>"
+    )]
     fn track<A>(&mut self, addr: *const A) -> bool {
         let tracker = self.get_mut().expect("Mutex was poisoned");
 
@@ -31,6 +35,10 @@ impl<T: GetSizeTracker> GetSizeTracker for Mutex<T> {
 }
 
 impl<T: GetSizeTracker> GetSizeTracker for RwLock<T> {
+    #[expect(
+        clippy::expect_used,
+        reason = "This is required to implement GetSizeTracker for RwLock<T>"
+    )]
     fn track<A>(&mut self, addr: *const A) -> bool {
         let mut tracker = self.write().expect("RwLock was poisoned");
 
@@ -39,6 +47,10 @@ impl<T: GetSizeTracker> GetSizeTracker for RwLock<T> {
 }
 
 impl<T: GetSizeTracker> GetSizeTracker for Arc<Mutex<T>> {
+    #[expect(
+        clippy::expect_used,
+        reason = "This is required to implement GetSizeTracker for Arc<Mutex<T>>"
+    )]
     fn track<A>(&mut self, addr: *const A) -> bool {
         let mut tracker = self.lock().expect("Mutex was poisoned");
 
@@ -47,6 +59,10 @@ impl<T: GetSizeTracker> GetSizeTracker for Arc<Mutex<T>> {
 }
 
 impl<T: GetSizeTracker> GetSizeTracker for Arc<RwLock<T>> {
+    #[expect(
+        clippy::expect_used,
+        reason = "This is required to implement GetSizeTracker for Arc<RwLock<T>>"
+    )]
     fn track<A>(&mut self, addr: *const A) -> bool {
         let mut tracker = self.write().expect("RwLock was poisoned");
 
@@ -97,7 +113,7 @@ impl NoTracker {
     }
 
     /// Changes the answer which will always be returned by this pseudo tracker.
-    pub fn set_answer(&mut self, answer: bool) {
+    pub const fn set_answer(&mut self, answer: bool) {
         self.answer = answer;
     }
 }

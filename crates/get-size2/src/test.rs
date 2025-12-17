@@ -199,7 +199,7 @@ where
 {
     Block(T),
     Blocks(Box<[T; MINIMAL_NODE_SIZE * MINIMAL_NODE_SIZE * MINIMAL_NODE_SIZE]>),
-    Nodes(Box<[Node<T>; 8]>),
+    Nodes(Box<[Self; 8]>),
 }
 
 #[test]
