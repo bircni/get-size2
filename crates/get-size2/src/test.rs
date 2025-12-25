@@ -257,12 +257,12 @@ fn tracker() {
 
     let shared = RcWrapper(Rc::new(5));
 
-    let (size, _) =
-        (shared.clone(), shared.clone()).get_heap_size_with_tracker(StandardTracker::new());
+    let size =
+        (shared.clone(), shared.clone()).get_heap_size_with_tracker(&mut StandardTracker::new());
     assert_eq!(size, shared.get_heap_size());
 
     let vec = vec![shared.clone(); 100];
-    let (size, _) = vec.get_heap_size_with_tracker(StandardTracker::new());
+    let size = vec.get_heap_size_with_tracker(&mut StandardTracker::new());
     assert_eq!(
         size,
         (std::mem::size_of::<Rc<i32>>() * 100) + shared.get_heap_size()
@@ -627,7 +627,7 @@ fn refcell() {
 
     // Test RefCell with StandardTracker
     let cell = RefCell::new(String::from("tracker"));
-    let (heap_size, _tracker) = cell.get_heap_size_with_tracker(StandardTracker::new());
+    let heap_size = cell.get_heap_size_with_tracker(&mut StandardTracker::new());
     assert_eq!(heap_size, 7); // "tracker" is 7 bytes
     assert_eq!(heap_size, cell.get_heap_size());
 

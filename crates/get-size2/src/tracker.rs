@@ -1,4 +1,5 @@
 use std::collections::HashSet;
+use std::ptr::NonNull;
 use std::sync::{Arc, Mutex, RwLock};
 
 /// A tracker which makes sure that shared ownership objects are only accounted for once.
@@ -7,23 +8,23 @@ pub trait GetSizeTracker {
     ///
     /// Returns `true` if the reference, as indexed by the pointed to `addr`, has not yet
     /// been seen by this tracker. Otherwise it returns `false`.
-    fn track<A>(&mut self, addr: *const A) -> bool;
+    fn track(&mut self, addr: NonNull<()>) -> bool;
 }
 
 impl<T: GetSizeTracker> GetSizeTracker for &mut T {
-    fn track<A>(&mut self, addr: *const A) -> bool {
+    fn track(&mut self, addr: NonNull<()>) -> bool {
         GetSizeTracker::track(*self, addr)
     }
 }
 
 impl<T: GetSizeTracker> GetSizeTracker for Box<T> {
-    fn track<A>(&mut self, addr: *const A) -> bool {
+    fn track(&mut self, addr: NonNull<()>) -> bool {
         GetSizeTracker::track(&mut **self, addr)
     }
 }
 
 impl<T: GetSizeTracker> GetSizeTracker for Mutex<T> {
-    fn track<A>(&mut self, addr: *const A) -> bool {
+    fn track(&mut self, addr: NonNull<()>) -> bool {
         let tracker = self.get_mut().expect("Mutex was poisoned");
 
         GetSizeTracker::track(&mut *tracker, addr)
@@ -31,7 +32,7 @@ impl<T: GetSizeTracker> GetSizeTracker for Mutex<T> {
 }
 
 impl<T: GetSizeTracker> GetSizeTracker for RwLock<T> {
-    fn track<A>(&mut self, addr: *const A) -> bool {
+    fn track(&mut self, addr: NonNull<()>) -> bool {
         let mut tracker = self.write().expect("RwLock was poisoned");
 
         GetSizeTracker::track(&mut *tracker, addr)
@@ -39,7 +40,7 @@ impl<T: GetSizeTracker> GetSizeTracker for RwLock<T> {
 }
 
 impl<T: GetSizeTracker> GetSizeTracker for Arc<Mutex<T>> {
-    fn track<A>(&mut self, addr: *const A) -> bool {
+    fn track(&mut self, addr: NonNull<()>) -> bool {
         let mut tracker = self.lock().expect("Mutex was poisoned");
 
         GetSizeTracker::track(&mut *tracker, addr)
@@ -47,7 +48,7 @@ impl<T: GetSizeTracker> GetSizeTracker for Arc<Mutex<T>> {
 }
 
 impl<T: GetSizeTracker> GetSizeTracker for Arc<RwLock<T>> {
-    fn track<A>(&mut self, addr: *const A) -> bool {
+    fn track(&mut self, addr: NonNull<()>) -> bool {
         let mut tracker = self.write().expect("RwLock was poisoned");
 
         GetSizeTracker::track(&mut *tracker, addr)
@@ -72,8 +73,8 @@ impl StandardTracker {
 }
 
 impl GetSizeTracker for StandardTracker {
-    fn track<A>(&mut self, addr: *const A) -> bool {
-        self.inner.insert(addr.addr())
+    fn track(&mut self, addr: NonNull<()>) -> bool {
+        self.inner.insert(addr.as_ptr().addr())
     }
 }
 
@@ -103,7 +104,7 @@ impl NoTracker {
 }
 
 impl GetSizeTracker for NoTracker {
-    fn track<A>(&mut self, _addr: *const A) -> bool {
+    fn track(&mut self, _addr: NonNull<()>) -> bool {
         self.answer
     }
 }
