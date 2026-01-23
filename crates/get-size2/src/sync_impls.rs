@@ -7,13 +7,12 @@ impl<T> GetSize for Mutex<T>
 where
     T: GetSize,
 {
-    #[expect(
-        clippy::expect_used,
-        reason = "This is required to implement GetSize for Mutex<T>"
-    )]
     fn get_heap_size_with_tracker<Tr: GetSizeTracker>(&self, tracker: Tr) -> (usize, Tr) {
         // We assume that a `Mutex` holds its data on the stack.
-        T::get_heap_size_with_tracker(&*(self.lock().expect("Mutex is poisoned")), tracker)
+        let guard = self
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        T::get_heap_size_with_tracker(&*guard, tracker)
     }
 }
 
@@ -21,13 +20,12 @@ impl<T> GetSize for RwLock<T>
 where
     T: GetSize,
 {
-    #[expect(
-        clippy::expect_used,
-        reason = "This is required to implement GetSize for RwLock<T>"
-    )]
     fn get_heap_size_with_tracker<Tr: GetSizeTracker>(&self, tracker: Tr) -> (usize, Tr) {
         // We assume that a `RwLock` holds its data on the stack.
-        T::get_heap_size_with_tracker(&*(self.read().expect("RwLock is poisoned")), tracker)
+        let guard = self
+            .read()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        T::get_heap_size_with_tracker(&*guard, tracker)
     }
 }
 

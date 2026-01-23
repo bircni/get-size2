@@ -23,48 +23,40 @@ impl<T: GetSizeTracker> GetSizeTracker for Box<T> {
 }
 
 impl<T: GetSizeTracker> GetSizeTracker for Mutex<T> {
-    #[expect(
-        clippy::expect_used,
-        reason = "This is required to implement GetSizeTracker for Mutex<T>"
-    )]
     fn track<A>(&mut self, addr: *const A) -> bool {
-        let tracker = self.get_mut().expect("Mutex was poisoned");
+        let tracker = self
+            .get_mut()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
 
         GetSizeTracker::track(&mut *tracker, addr)
     }
 }
 
 impl<T: GetSizeTracker> GetSizeTracker for RwLock<T> {
-    #[expect(
-        clippy::expect_used,
-        reason = "This is required to implement GetSizeTracker for RwLock<T>"
-    )]
     fn track<A>(&mut self, addr: *const A) -> bool {
-        let mut tracker = self.write().expect("RwLock was poisoned");
+        let mut tracker = self
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
 
         GetSizeTracker::track(&mut *tracker, addr)
     }
 }
 
 impl<T: GetSizeTracker> GetSizeTracker for Arc<Mutex<T>> {
-    #[expect(
-        clippy::expect_used,
-        reason = "This is required to implement GetSizeTracker for Arc<Mutex<T>>"
-    )]
     fn track<A>(&mut self, addr: *const A) -> bool {
-        let mut tracker = self.lock().expect("Mutex was poisoned");
+        let mut tracker = self
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
 
         GetSizeTracker::track(&mut *tracker, addr)
     }
 }
 
 impl<T: GetSizeTracker> GetSizeTracker for Arc<RwLock<T>> {
-    #[expect(
-        clippy::expect_used,
-        reason = "This is required to implement GetSizeTracker for Arc<RwLock<T>>"
-    )]
     fn track<A>(&mut self, addr: *const A) -> bool {
-        let mut tracker = self.write().expect("RwLock was poisoned");
+        let mut tracker = self
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
 
         GetSizeTracker::track(&mut *tracker, addr)
     }
