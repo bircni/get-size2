@@ -2,7 +2,7 @@
 
 use attribute_derive::{Attribute, FromAttr};
 use proc_macro::TokenStream;
-use quote::quote;
+use quote::{format_ident, quote};
 
 #[derive(FromAttr, Default, Debug)]
 #[attribute(ident = get_size)]
@@ -114,17 +114,18 @@ fn add_trait_bounds(mut generics: syn::Generics, ignored: &Vec<syn::PathSegment>
     generics
 }
 
-#[expect(
-    clippy::too_many_lines,
-    clippy::missing_panics_doc,
-    clippy::expect_used,
-    reason = "Needs refactoring"
-)]
 #[proc_macro_derive(GetSize, attributes(get_size))]
 pub fn derive_get_size(input: TokenStream) -> TokenStream {
-    // Construct a representation of Rust code as a syntax tree
-    // that we can manipulate
-    let ast: syn::DeriveInput = syn::parse(input).expect("Could not parse tokens");
+    match derive_get_size_impl(input) {
+        Ok(tokens) => tokens,
+        Err(err) => err.to_compile_error().into(),
+    }
+}
+
+#[expect(clippy::too_many_lines, reason = "Needs refactoring")]
+fn derive_get_size_impl(input: TokenStream) -> syn::Result<TokenStream> {
+    // Construct a representation of Rust code as a syntax tree that we can manipulate.
+    let ast: syn::DeriveInput = syn::parse(input)?;
 
     // The name of the struct.
     let name = &ast.ident;
@@ -147,7 +148,7 @@ pub fn derive_get_size(input: TokenStream) -> TokenStream {
                 let generated = quote! {
                     impl ::get_size2::GetSize for #name {}
                 };
-                return generated.into();
+                return Ok(generated.into());
             }
 
             let mut cmds = Vec::with_capacity(data_enum.variants.len());
@@ -161,24 +162,18 @@ pub fn derive_get_size(input: TokenStream) -> TokenStream {
 
                         let mut field_idents = Vec::with_capacity(num_fields);
                         for i in 0..num_fields {
-                            let field_ident = String::from("v") + &i.to_string();
-                            let field_ident = syn::parse_str::<syn::Ident>(&field_ident)
-                                .expect("Could not parse string to ident.");
-
-                            field_idents.push(field_ident);
+                            field_idents.push(format_ident!("v{i}"));
                         }
 
                         let mut field_cmds = Vec::with_capacity(num_fields);
 
                         for (i, _field) in unnamed_fields.unnamed.iter().enumerate() {
-                            let field_ident = String::from("v") + &i.to_string();
-                            let field_ident = syn::parse_str::<syn::Ident>(&field_ident)
-                                .expect("Could not parse string to ident.");
+                            let field_ident = format_ident!("v{i}");
 
                             field_cmds.push(quote! {
-                                let (total_add, tracker) = ::get_size2::GetSize::get_heap_size_with_tracker(#field_ident, tracker);
-                                total += total_add;
-                            });
+                                    let (total_add, tracker) = ::get_size2::GetSize::get_heap_size_with_tracker(#field_ident, tracker);
+                                    total += total_add;
+                                });
                         }
 
                         cmds.push(quote! {
@@ -197,11 +192,12 @@ pub fn derive_get_size(input: TokenStream) -> TokenStream {
                         let mut skipped_field = false;
 
                         for field in &named_fields.named {
-                            let field_ident =
-                                field.ident.as_ref().expect("Could not get field ident.");
+                            let field_ident = field.ident.as_ref().ok_or_else(|| {
+                                syn::Error::new_spanned(field, "Expected named field")
+                            })?;
 
                             let attr = StructFieldAttribute::from_attributes(&field.attrs)
-                                .expect("Could not parse field attributes.");
+                                .map_err(|err| syn::Error::new_spanned(field, err.to_string()))?;
 
                             if attr.ignore {
                                 skipped_field = true;
@@ -260,18 +256,19 @@ pub fn derive_get_size(input: TokenStream) -> TokenStream {
                     }
                 }
             };
-            generated.into()
+            Ok(generated.into())
         }
-        syn::Data::Union(_data_union) => {
-            panic!("Deriving GetSize for unions is currently not supported.")
-        }
+        syn::Data::Union(_data_union) => Err(syn::Error::new_spanned(
+            name,
+            "Deriving GetSize for unions is currently not supported.",
+        )),
         syn::Data::Struct(data_struct) => {
             if data_struct.fields.is_empty() {
                 // Empty structs are easy to implement.
                 let generated = quote! {
                     impl ::get_size2::GetSize for #name {}
                 };
-                return generated.into();
+                return Ok(generated.into());
             }
 
             let mut cmds = Vec::with_capacity(data_struct.fields.len());
@@ -281,7 +278,7 @@ pub fn derive_get_size(input: TokenStream) -> TokenStream {
             for field in &data_struct.fields {
                 // Parse all relevant attributes.
                 let attr = StructFieldAttribute::from_attributes(&field.attrs)
-                    .expect("Could not parse attributes.");
+                    .map_err(|err| syn::Error::new_spanned(field, err.to_string()))?;
 
                 // NOTE There will be no attributes if this is a tuple struct.
                 if let Some(size) = attr.size {
@@ -291,7 +288,12 @@ pub fn derive_get_size(input: TokenStream) -> TokenStream {
 
                     continue;
                 } else if let Some(size_fn) = attr.size_fn {
-                    let ident = field.ident.as_ref().expect("Could not get field ident.");
+                    let ident = field.ident.as_ref().ok_or_else(|| {
+                        syn::Error::new_spanned(
+                            field,
+                            "get_size(size_fn = ...) is only supported on named fields",
+                        )
+                    })?;
 
                     cmds.push(quote! {
                         total += #size_fn(&self.#ident);
@@ -341,7 +343,7 @@ pub fn derive_get_size(input: TokenStream) -> TokenStream {
                     }
                 }
             };
-            generated.into()
+            Ok(generated.into())
         }
     }
 }
