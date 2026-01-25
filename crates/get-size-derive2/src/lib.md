@@ -105,7 +105,7 @@ fn main() {
 
 Deriving [`GetSize`] is straight forward if all the types contained in your data structure implement [`GetSize`] themselves, but this might not always be the case. For that reason the derive macro offers some helpers to assist you in that case.
 
-Note that the helpers are currently only available for regular structs, that is they do neither support tuple structs nor enums.
+Note that the helper attributes are supported for structs (named and tuple; `size_fn` requires named fields). For enums, only `ignore` is supported on named fields.
 
 ### Ignoring certain values
 
@@ -165,7 +165,7 @@ struct TestStructNoGetSize {
     value: String,
 }
 
-// Implements GetSize, even through one field's type does not implement it.
+// Implements GetSize, even though one field's type does not implement it.
 #[derive(GetSize)]
 struct TestStruct {
   name: String,
@@ -263,7 +263,7 @@ fn main() {
 
 ### Ignoring certain generic types
 
-If your struct uses generics, but the fields at which they are stored are ignored or get handled by helpers because the generic does not implement [`GetSize`], you will have to mark these generics with a special struct level `ignore` attribute. Otherwise the derived [`GetSize`] implementation would still require these generics to implement [`GetSize`], even through there is no need for it.
+If your struct uses generics, but the fields at which they are stored are ignored or get handled by helpers because the generic does not implement [`GetSize`], you will have to mark these generics with a special struct level `ignore` attribute. Otherwise the derived [`GetSize`] implementation would still require these generics to implement [`GetSize`], even though there is no need for it.
 
 ```rust
 use get_size2::GetSize;
@@ -305,5 +305,5 @@ The derive macro will panic if used on unions since these are currently not supp
 
 Note that there will be a compilation error if one of the (not ignored) values encountered does not implement the [`GetSize`] trait.
 
-[`GetSize`]: https://docs.rs/get-size/latest/get_size/trait.GetSize.html
-[`get_heap_size`]: https://docs.rs/get-size/latest/get_size/trait.GetSize.html#method.get_heap_size
+[`GetSize`]: https://docs.rs/get-size2/latest/get_size2/trait.GetSize.html
+[`get_heap_size`]: https://docs.rs/get-size2/latest/get_size2/trait.GetSize.html#method.get_heap_size

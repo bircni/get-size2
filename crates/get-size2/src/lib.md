@@ -48,7 +48,7 @@ fn main() {
   assert_eq!(value.get_heap_size(), 5);
   assert_eq!(GetSize::get_heap_size(&&value), 0); // Fully qualified syntax
 
-  // WARNING: Duo to rust's automatic dereferencing, a simple pointer will be dereferenced
+  // WARNING: Due to rust's automatic dereferencing, a simple pointer will be dereferenced
   // to the original value, causing the borrowed bytes to be accounted for too.
   assert_eq!((&value).get_heap_size(), 5);
   // The above gets rewritten by to compiler into:
@@ -95,7 +95,7 @@ Unless you have a complex data structure which requires a manual implementation,
 You will need to activate the `derive` feature first, which is disabled by default. Add the following to your `cargo.toml`:
 
 ```toml
-get-size2 = { version = "^0.1", features = ["derive"] }
+get-size2 = { version = "^0.7", features = ["derive"] }
 ```
 
 Note that the derive macro _does not support unions_. You have to manually implement it for them.
@@ -201,7 +201,7 @@ fn main() {
 
 Deriving [`GetSize`] is straight forward if all the types contained in your data structure implement [`GetSize`] themselves, but this might not always be the case. For that reason the derive macro offers some helpers to assist you in that case.
 
-Note that the helpers are currently only available for regular structs, that is they do neither support tuple structs nor enums.
+Note that the helper attributes are supported for structs (named and tuple; `size_fn` requires named fields). For enums, only `ignore` is supported on named fields.
 
 ### Ignoring certain values
 
@@ -261,7 +261,7 @@ struct TestStructNoGetSize {
     value: String,
 }
 
-// Implements GetSize, even through one field's type does not implement it.
+// Implements GetSize, even though one field's type does not implement it.
 #[derive(GetSize)]
 struct TestStruct {
   name: String,
@@ -359,7 +359,7 @@ fn main() {
 
 ### Ignoring certain generic types
 
-If your struct uses generics, but the fields at which they are stored are ignored or get handled by helpers because the generic does not implement [`GetSize`], you will have to mark these generics with a special struct level `ignore` attribute. Otherwise the derived [`GetSize`] implementation would still require these generics to implement [`GetSize`], even through there is no need for it.
+If your struct uses generics, but the fields at which they are stored are ignored or get handled by helpers because the generic does not implement [`GetSize`], you will have to mark these generics with a special struct level `ignore` attribute. Otherwise the derived [`GetSize`] implementation would still require these generics to implement [`GetSize`], even though there is no need for it.
 
 ```rust
 use get_size2::GetSize;
@@ -392,5 +392,19 @@ fn main() {
     };
 
     assert_eq!(test.get_heap_size(), 5 + 100 + 50);
+}
+```
+
+# Tracking shared ownership
+
+To avoid double-counting shared ownership (e.g. `Rc`, `Arc`), use a tracker:
+
+```rust
+use get_size2::{GetSize, StandardTracker};
+
+fn main() {
+  let value = std::sync::Arc::new(String::from("hello"));
+  let (heap_size, _tracker) = value.get_heap_size_with_tracker(StandardTracker::new());
+  assert_eq!(heap_size, std::mem::size_of::<String>() + 5);
 }
 ```
