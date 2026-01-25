@@ -1,12 +1,12 @@
-# get-size-derive
+# get-size-derive2
 
 [![Crates.io](https://img.shields.io/crates/v/get-size-derive2)](https://crates.io/crates/get-size-derive2)
 [![docs.rs](https://img.shields.io/docsrs/get-size-derive2)](https://docs.rs/get-size-derive2)
-[![MIT licensed](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/bircni/get-size2/blob/main/get-size-derive2/LICENSE)
+[![MIT licensed](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/bircni/get-size2/blob/main/crates/get-size-derive2/LICENSE)
 
 Derives [`GetSize`] for structs and enums.
 
-The derive macro will provide a custom implementation of the [`get_heap_size`] method, which will simply call [`get_heap_size`] on all contained values and add the values up. This implies that by default all values contained in the struct or enum most implement the [`GetSize`] trait themselves.
+The derive macro will provide a custom implementation of the [`get_heap_size`] method, which will simply call [`get_heap_size`] on all contained values and add the values up. This implies that by default all values contained in the struct or enum must implement the [`GetSize`] trait themselves.
 
 Note that the derive macro _does not support unions_. You have to manually implement it for them.
 
@@ -111,7 +111,7 @@ fn main() {
 
 Deriving [`GetSize`] is straight forward if all the types contained in your data structure implement [`GetSize`] themselves, but this might not always be the case. For that reason the derive macro offers some helpers to assist you in that case.
 
-Note that the helpers are currently only available for regular structs, that is they do neither support tuple structs nor enums.
+Note that the helper attributes are supported for structs (named and tuple; `size_fn` requires named fields). For enums, only `ignore` is supported on named fields.
 
 #### Ignoring certain values
 
@@ -171,7 +171,7 @@ struct TestStructNoGetSize {
     value: String,
 }
 
-// Implements GetSize, even through one field's type does not implement it.
+// Implements GetSize, even though one field's type does not implement it.
 #[derive(GetSize)]
 struct TestStruct {
   name: String,
@@ -259,7 +259,7 @@ fn main() {
 
 #### Ignoring certain generic types
 
-If your struct uses generics, but the fields at which they are stored are ignored or get handled by helpers because the generic does not implement [`GetSize`], you will have to mark these generics with a special struct level `ignore` attribute. Otherwise the derived [`GetSize`] implementation would still require these generics to implement [`GetSize`], even through there is no need for it.
+If your struct uses generics, but the fields at which they are stored are ignored or get handled by helpers because the generic does not implement [`GetSize`], you will have to mark these generics with a special struct level `ignore` attribute. Otherwise the derived [`GetSize`] implementation would still require these generics to implement [`GetSize`], even though there is no need for it.
 
 ```rust
 use get_size2::GetSize;

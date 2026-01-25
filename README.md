@@ -13,6 +13,20 @@ This repo contains two crates: `get-size2` and `get-size-derive2`.
 
 Determine the size in bytes an object occupies inside RAM.
 
+### Tracking shared ownership
+
+To avoid double-counting shared ownership (e.g. `Rc`, `Arc`), use a tracker:
+
+```rust
+use get_size2::{GetSize, StandardTracker};
+
+fn main() {
+  let value = std::sync::Arc::new(String::from("hello"));
+  let (heap_size, _tracker) = value.get_heap_size_with_tracker(StandardTracker::new());
+  assert_eq!(heap_size, std::mem::size_of::<String>() + 5);
+}
+```
+
 ## get-size-derive2
 
-The derive macro will provide a custom implementation of the [`get_heap_size`] method, which will simply call [`get_heap_size`] on all contained values and add the values up. This implies that by default all values contained in the struct or enum most implement the [`GetSize`] trait themselves.
+The derive macro will provide a custom implementation of the [`get_heap_size`] method, which will simply call [`get_heap_size`] on all contained values and add the values up. This implies that by default all values contained in the struct or enum must implement the [`GetSize`] trait themselves.

@@ -142,5 +142,3 @@ All notable changes to this project will be documented in this file. See [conven
 ### Feature
 
 - Remove need of use get_size::GetSize for #[derive(get_size::GetSize)] (#3) - ([067e8e3](https://github.com/bircni/get-size2/commit/067e8e37fc0071497f90e51726f1c3819f11246d)) - Nicolas
-
-## [0.1.4] - 2023-06-23

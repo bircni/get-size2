@@ -1,8 +1,8 @@
-# get-size
+# get-size2
 
 [![Crates.io](https://img.shields.io/crates/v/get-size2)](https://crates.io/crates/get-size2)
 [![docs.rs](https://img.shields.io/docsrs/get-size2)](https://docs.rs/get-size2)
-[![MIT licensed](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/bircksn/get-size2/blob/main/crates/get-size2/LICENSE)
+[![MIT licensed](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/bircni/get-size2/blob/main/crates/get-size2/LICENSE)
 
 > This repo is a fork of get-size, as it is not maintained anymore. The original repo can be found [here](https://github.com/DKerp/get-size)
 
@@ -49,7 +49,7 @@ Unless you have a complex datastructure which requires a manual implementation, 
 You will need to activate the `derive` feature first, which is disabled by default. Add the following to your `cargo.toml`:
 
 ```toml
-get-size2 = { version = "^0.1", features = ["derive"] }
+get-size2 = { version = "^0.7", features = ["derive"] }
 ```
 
 Note that the derive macro _does not support unions_. You have to manually implement it for them.
@@ -59,7 +59,7 @@ The derive macro does also work with generics. The generated trait implementatio
 
 Deriving [`GetSize`] is straight forward if all the types contained in your data structure implement [`GetSize`] themselves, but this might not always be the case. For that reason the derive macro offers some helpers to assist you in that case.
 
-Note that the helpers are currently only available for regular structs, that is they do neither support tuple structs nor enums.
+Note that the helper attributes are supported for structs (named and tuple; `size_fn` requires named fields). For enums, only `ignore` is supported on named fields.
 
 #### Ignoring certain values
 
@@ -84,7 +84,21 @@ Note that unlike in other crates, the name of the function to be called is **not
 
 #### Ignoring certain generic types
 
-If your struct uses generics, but the fields at which they are stored are ignored or get handled by helpers because the generic does not implement [`GetSize`], you will have to mark these generics with a special struct level `ignore` attribute. Otherwise the derived [`GetSize`] implementation would still require these generics to implement [`GetSize`], even through there is no need for it.
+If your struct uses generics, but the fields at which they are stored are ignored or get handled by helpers because the generic does not implement [`GetSize`], you will have to mark these generics with a special struct level `ignore` attribute. Otherwise the derived [`GetSize`] implementation would still require these generics to implement [`GetSize`], even though there is no need for it.
+
+## Tracking shared ownership
+
+To avoid double-counting shared ownership (e.g. `Rc`, `Arc`), use a tracker:
+
+```rust
+use get_size2::{GetSize, StandardTracker};
+
+fn main() {
+  let value = std::sync::Arc::new(String::from("hello"));
+  let (heap_size, _tracker) = value.get_heap_size_with_tracker(StandardTracker::new());
+  assert_eq!(heap_size, std::mem::size_of::<String>() + 5);
+}
+```
 
 ## License
 

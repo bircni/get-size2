@@ -5,13 +5,7 @@
 #[cfg_attr(docsrs, doc(cfg(feature = "derive")))]
 pub use get_size_derive2::*;
 
-mod collections;
-mod feature_impls;
-mod ownership;
-mod primitives;
-mod ranges;
-mod std_types;
-mod sync_impls;
+mod impls;
 mod tracker;
 pub use tracker::*;
 #[cfg(test)]
