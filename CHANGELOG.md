@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
+## [0.7.4](https://github.com/bircni/get-size2/compare/0.7.3..0.7.4) - 2026-01-25
+
+### Bug Fixes
+
+- **(derive)** improve error handling - ([ef02aef](https://github.com/bircni/get-size2/commit/ef02aef31c71cfccf9d024ceb61706d4980aabe0)) - Nicolas
+- **(sync)** handle poisoned locks - ([27af5ea](https://github.com/bircni/get-size2/commit/27af5ea22543b0dbf2d8b8c0ce04d46645fbc364)) - Nicolas
+
+### Refactoring
+
+- **(get-size2)** organize feature impls into separate files - ([d051b56](https://github.com/bircni/get-size2/commit/d051b569de309de6c4f91964e5f6802b48a4a0d7)) - Nicolas
+- Refactor GetSize implementation by modularizing code into separate files - ([6480486](https://github.com/bircni/get-size2/commit/6480486eff5db08d1cfa80548bdb40709bd8ff07)) - Nicolas
+
 ## [0.7.3](https://github.com/bircni/get-size2/compare/0.7.2..0.7.3) - 2025-12-04
 
 ### Features
@@ -28,7 +40,7 @@ All notable changes to this project will be documented in this file. See [conven
 
 ### Features
 
--  [**breaking**]Keep size tracker alive through recursive calls to `get_heap_size_with_tracker` (#34) - ([39a9baf](https://github.com/bircni/get-size2/commit/39a9bafa76f495bf526bbc39341843bb3e03c1ec)) - Ibraheem Ahmed
+-  [**breaking**] Keep size tracker alive through recursive calls to `get_heap_size_with_tracker` (#34) - ([39a9baf](https://github.com/bircni/get-size2/commit/39a9bafa76f495bf526bbc39341843bb3e03c1ec)) - Ibraheem Ahmed
 
 ### Miscellaneous Chores
 
@@ -101,7 +113,7 @@ All notable changes to this project will be documented in this file. See [conven
 
 ### Features
 
--  [**breaking**]Impl for all `Range` types, while accounting for possible heap-allocations of indices. (#16) - ([90d354b](https://github.com/bircni/get-size2/commit/90d354b3799ffe264e127c9a9daad76a3f2dedad)) - Jasper
+-  [**breaking**] Impl for all `Range` types, while accounting for possible heap-allocations of indices. (#16) - ([90d354b](https://github.com/bircni/get-size2/commit/90d354b3799ffe264e127c9a9daad76a3f2dedad)) - Jasper
 - Add `smallvec` feature (#20) - ([e18b27e](https://github.com/bircni/get-size2/commit/e18b27ef9e4bdd5041b4007d8d9d0bc952cf2a47)) - Ibraheem Ahmed
 - Add `hashbrown` feature (#21) - ([02b5cfd](https://github.com/bircni/get-size2/commit/02b5cfdd37ac9509b56b7945a647f102973c29ba)) - Ibraheem Ahmed
 - Add `compact-str` feature (#22) - ([97b6303](https://github.com/bircni/get-size2/commit/97b6303878f1fa6f3e40b2ab0fe6a95d90b51e3f)) - Ibraheem Ahmed
@@ -142,3 +154,5 @@ All notable changes to this project will be documented in this file. See [conven
 ### Feature
 
 - Remove need of use get_size::GetSize for #[derive(get_size::GetSize)] (#3) - ([067e8e3](https://github.com/bircni/get-size2/commit/067e8e37fc0071497f90e51726f1c3819f11246d)) - Nicolas
+
+## [0.1.0-beta.1] - 2024-09-13
