@@ -1,12 +1,17 @@
 #![expect(dead_code, clippy::unwrap_used, reason = "This is a test module")]
 
 use std::cell::RefCell;
+use std::collections::{BTreeMap, BTreeSet, BinaryHeap, HashMap, HashSet, LinkedList, VecDeque};
+use std::ffi::{CStr, CString, OsStr, OsString};
+use std::io::{BufReader, BufWriter};
 use std::mem::size_of;
-use std::rc::Rc;
-use std::sync::Arc;
-use std::sync::OnceLock;
+use std::path::{Path, PathBuf};
+use std::rc::{Rc, Weak as RcWeak};
+use std::sync::{Arc, Mutex, OnceLock, RwLock, Weak as ArcWeak};
 
 use get_size2::*;
+
+mod feature;
 
 #[derive(GetSize)]
 pub struct TestStruct {
@@ -187,7 +192,7 @@ fn derive_enum_generics() {
 
     let test: TestEnumGenerics<'_, u64, String, TestStruct> =
         TestEnumGenerics::Variant3(&test_struct);
-    assert_eq!(test.get_heap_size(), 0); // It is a pointer.
+    assert_eq!(test.get_heap_size(), 0);
 }
 
 const MINIMAL_NODE_SIZE: usize = 3;
@@ -231,14 +236,9 @@ pub enum TestEnum2 {
 
 #[test]
 fn derive_enum_c_style() {
-    let test = TestEnum2::Zero;
-    assert_eq!(test.get_heap_size(), 0);
-
-    let test = TestEnum2::One;
-    assert_eq!(test.get_heap_size(), 0);
-
-    let test = TestEnum2::Two;
-    assert_eq!(test.get_heap_size(), 0);
+    assert_eq!(TestEnum2::Zero.get_heap_size(), 0);
+    assert_eq!(TestEnum2::One.get_heap_size(), 0);
+    assert_eq!(TestEnum2::Two.get_heap_size(), 0);
 }
 
 #[derive(GetSize)]
@@ -271,7 +271,6 @@ fn tracker() {
 
 #[test]
 fn boxed_slice() {
-    use std::mem::size_of;
     let boxed = vec![1u8; 10].into_boxed_slice();
     assert_eq!(boxed.get_heap_size(), size_of::<u8>() * boxed.len());
 
@@ -312,157 +311,18 @@ fn cow() {
 }
 
 #[test]
-fn chrono() {
-    use chrono::TimeZone;
-
-    let timedelta = chrono::TimeDelta::seconds(5);
-    assert_eq!(timedelta.get_heap_size(), 0);
-
-    let datetime = chrono::Utc.with_ymd_and_hms(2014, 7, 8, 9, 10, 11).unwrap(); // `2014-07-08T09:10:11Z`
-    assert_eq!(datetime.naive_utc().get_heap_size(), 0);
-    assert_eq!(datetime.naive_utc().date().get_heap_size(), 0);
-    assert_eq!(datetime.naive_utc().time().get_heap_size(), 0);
-    assert_eq!(datetime.timezone().get_heap_size(), 0);
-    assert_eq!(datetime.fixed_offset().timezone().get_heap_size(), 0);
-    assert_eq!(datetime.get_heap_size(), 0);
-}
-
-#[test]
-fn chrono_tz() {
-    use chrono::TimeZone;
-
-    let datetime = chrono_tz::UTC
-        .with_ymd_and_hms(2014, 7, 8, 9, 10, 11)
-        .unwrap(); // `2014-07-08T09:10:11Z`
-    assert_eq!(datetime.offset().get_heap_size(), 0);
-}
-
-#[test]
-fn url() {
-    const URL_STR: &str = "https://example.com/path?a=b&c=d";
-
-    let url = url::Url::parse(URL_STR).unwrap();
-    assert_eq!(url.get_heap_size(), URL_STR.len());
-}
-
-#[test]
-fn bytes() {
-    const BYTES_STR: &str = "Hello world";
-
-    let bytes = bytes::Bytes::from(BYTES_STR);
-    assert_eq!(bytes.get_heap_size(), BYTES_STR.len());
-
-    let mut bytes_mut = bytes::BytesMut::from(BYTES_STR);
-    assert_eq!(bytes_mut.get_heap_size(), BYTES_STR.len());
-    bytes_mut.truncate(0);
-    assert_eq!(bytes_mut.get_heap_size(), 0);
-}
-
-fn once_lock_get_size() {
-    // empty OnceLock
+fn once_lock() {
     let lock: OnceLock<String> = OnceLock::new();
     assert_eq!(lock.get_heap_size(), 0);
 
-    // filled OnceLock
     let lock_filled: OnceLock<String> = {
         let l = OnceLock::new();
         l.set(String::from("HalloTest")).unwrap();
         l
     };
-    // The heap size of a OnceLock filled with a String is the size of the String's heap allocation.
     assert_eq!(
         lock_filled.get_heap_size(),
         lock_filled.get().unwrap().capacity()
-    );
-}
-
-#[test]
-fn compact_str() {
-    const STR: &str = "Hello world";
-    const LONG_STR: &str = "A much looooonger string that exceeds 24 bytes.";
-
-    let value = compact_str::CompactString::from(STR);
-    assert_eq!(value.get_heap_size(), 0);
-
-    let mut value = compact_str::CompactString::from(LONG_STR);
-    assert_eq!(value.get_heap_size(), value.capacity());
-
-    value.shrink_to_fit();
-
-    assert_eq!(value.len(), value.capacity());
-    assert_eq!(value.get_heap_size(), LONG_STR.len());
-}
-
-#[test]
-fn hashbrown() {
-    use std::hash::{BuildHasher, RandomState};
-
-    const VALUE_STR: &str = "A very looooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooonng string.";
-
-    let hasher = RandomState::new();
-
-    let mut map = hashbrown::HashTable::new();
-    assert_eq!(map.get_heap_size(), 0);
-    map.insert_unique(
-        hasher.hash_one(VALUE_STR),
-        String::from(VALUE_STR),
-        |value| hasher.hash_one(value),
-    );
-    assert!(map.get_heap_size() >= size_of::<String>() + VALUE_STR.len());
-
-    let mut map = hashbrown::HashMap::<i32, String, RandomState>::default();
-    assert_eq!(map.get_heap_size(), 0);
-    map.insert(0, String::from(VALUE_STR));
-    assert!(map.get_heap_size() >= size_of::<(i32, String)>() + VALUE_STR.len());
-
-    let mut set = hashbrown::HashSet::<String, RandomState>::default();
-    assert_eq!(set.get_heap_size(), 0);
-    set.insert(String::from(VALUE_STR));
-    assert!(set.get_heap_size() >= size_of::<String>() + VALUE_STR.len());
-}
-
-#[test]
-fn smallvec() {
-    const ITEM_STR: &str = "Hello world";
-    let mut vec = smallvec::SmallVec::<[String; 2]>::from([String::new(), String::from(ITEM_STR)]);
-
-    assert_eq!(vec.get_heap_size(), ITEM_STR.len());
-    vec.push(String::new());
-
-    assert_eq!(
-        vec.get_heap_size(),
-        ITEM_STR.len() + std::mem::size_of::<String>() * vec.capacity()
-    );
-
-    vec.shrink_to_fit();
-
-    assert_eq!(
-        vec.get_heap_size(),
-        ITEM_STR.len() + std::mem::size_of::<String>() * 3
-    );
-}
-
-#[test]
-fn thin_vec() {
-    const ITEM_STR: &str = "Hello world";
-
-    assert_eq!(thin_vec::ThinVec::<String>::default().get_heap_size(), 0);
-
-    let mut vec = thin_vec::ThinVec::<String>::from([String::new(), String::from(ITEM_STR)]);
-    assert_eq!(
-        vec.get_heap_size(),
-        ITEM_STR.len()
-            + std::mem::size_of::<String>() * vec.capacity()
-            + std::mem::size_of::<usize>() * 2
-    );
-
-    vec.shrink_to_fit();
-
-    assert_eq!(
-        vec.get_heap_size(),
-        ITEM_STR.len()
-            + std::mem::size_of::<String>() * vec.len()
-            + std::mem::size_of::<usize>() * 2
     );
 }
 
@@ -494,7 +354,7 @@ fn test_ignore_attribute_on_enum_field() {
         A { data: Vec<u8> },
     }
 
-    let heap_vec = vec![0u8; 100]; // known heap allocation
+    let heap_vec = vec![0u8; 100];
     let with = WithIgnore::A {
         data: heap_vec.clone(),
     };
@@ -503,13 +363,7 @@ fn test_ignore_attribute_on_enum_field() {
     let size_with_ignore = with.get_heap_size();
     let size_without_ignore = without.get_heap_size();
 
-    println!("Size with ignore: {size_with_ignore}");
-    println!("Size without ignore: {size_without_ignore}");
-
-    // Size with ignore should be smaller than without
     assert!(size_with_ignore < size_without_ignore);
-
-    // The ignored size should roughly match the allocation of Vec<u8>
     let expected_size = size_without_ignore - size_with_ignore;
     assert!(
         expected_size >= 100,
@@ -518,70 +372,18 @@ fn test_ignore_attribute_on_enum_field() {
 }
 
 #[test]
-fn test_indexmap() {
-    use std::hash::RandomState;
-
-    const VALUE_STR: &str = "A very looooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooonng string.";
-
-    let hasher = RandomState::new();
-
-    let mut map = indexmap::IndexMap::with_capacity_and_hasher(1, hasher);
-    assert_eq!(map.get_heap_size(), 40);
-    map.insert(VALUE_STR, String::from(VALUE_STR));
-    assert!(map.get_heap_size() >= size_of::<(&'static str, String)>() + VALUE_STR.len());
-
-    let mut map = indexmap::IndexMap::<i32, String, RandomState>::default();
-    assert_eq!(map.get_heap_size(), 0);
-    map.insert(0, String::from(VALUE_STR));
-    assert!(map.get_heap_size() >= size_of::<(i32, String)>() + VALUE_STR.len());
-
-    let mut set = indexmap::IndexSet::<String, RandomState>::default();
-    assert_eq!(set.get_heap_size(), 0);
-    set.insert(String::from(VALUE_STR));
-    assert!(set.get_heap_size() >= size_of::<String>() + VALUE_STR.len());
-}
-
-#[test]
-fn test_ordermap() {
-    use std::hash::RandomState;
-
-    const VALUE_STR: &str = "A very looooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooonng string.";
-
-    let hasher = RandomState::new();
-
-    let mut map = ordermap::OrderMap::with_capacity_and_hasher(1, hasher);
-    assert_eq!(map.get_heap_size(), 40);
-    map.insert(VALUE_STR, String::from(VALUE_STR));
-    assert!(map.get_heap_size() >= size_of::<(&'static str, String)>() + VALUE_STR.len());
-
-    let mut map = ordermap::OrderMap::<i32, String, RandomState>::default();
-    assert_eq!(map.get_heap_size(), 0);
-    map.insert(0, String::from(VALUE_STR));
-    assert!(map.get_heap_size() >= size_of::<(i32, String)>() + VALUE_STR.len());
-
-    let mut set = ordermap::OrderSet::<String, RandomState>::default();
-    assert_eq!(set.get_heap_size(), 0);
-    set.insert(String::from(VALUE_STR));
-    assert!(set.get_heap_size() >= size_of::<String>() + VALUE_STR.len());
-}
-
-#[test]
 fn refcell() {
-    // Test RefCell with a simple type
     let cell = RefCell::new(42u32);
     assert_eq!(cell.get_heap_size(), 0);
     assert_eq!(cell.get_size(), size_of::<RefCell<u32>>());
 
-    // Test RefCell with a String (has heap allocation)
     let cell = RefCell::new(String::from("Hello, World!"));
-    assert_eq!(cell.get_heap_size(), 13); // "Hello, World!" is 13 bytes
+    assert_eq!(cell.get_heap_size(), 13);
     assert_eq!(cell.get_size(), size_of::<RefCell<String>>() + 13);
 
-    // Test RefCell with an empty String
     let cell = RefCell::new(String::new());
     assert_eq!(cell.get_heap_size(), 0);
 
-    // Test RefCell with a Vec
     let vec_data = vec![1u32, 2, 3, 4, 5];
     let expected_heap_size = vec_data.capacity() * size_of::<u32>();
     let cell = RefCell::new(vec_data);
@@ -591,48 +393,232 @@ fn refcell() {
         size_of::<RefCell<Vec<u32>>>() + expected_heap_size
     );
 
-    // Test nested RefCell
     let inner = RefCell::new(String::from("nested"));
     let outer = RefCell::new(inner);
-    // The outer RefCell should report the heap size of the String
-    assert_eq!(outer.get_heap_size(), 6); // "nested" is 6 bytes
+    assert_eq!(outer.get_heap_size(), 6);
 
-    // Test that we can get size while RefCell is borrowed
     let cell = RefCell::new(String::from("borrowed"));
     {
         let _borrowed = cell.borrow();
-        // This should still work even though the cell is borrowed
-        assert_eq!(cell.get_heap_size(), 8); // "borrowed" is 8 bytes
+        assert_eq!(cell.get_heap_size(), 8);
     }
-    // Also test after the borrow is released
     assert_eq!(cell.get_heap_size(), 8);
 
-    // Test the edge case where RefCell is mutably borrowed
     let cell = RefCell::new(String::from("mutable"));
     {
-        let mut _borrowed = cell.borrow_mut();
-        // While mutably borrowed, we cannot call get_heap_size on the same thread
-        // without triggering the try_borrow failure path.
-        // The implementation handles it gracefully by returning 0.
+        let _borrowed = cell.borrow_mut();
     }
-    // After releasing the mutable borrow, it should work normally
-    assert_eq!(cell.get_heap_size(), 7); // "mutable" is 7 bytes
+    assert_eq!(cell.get_heap_size(), 7);
 
-    // Test RefCell with a Box
     let boxed = Box::new(vec![1u32, 2, 3]);
     let cell = RefCell::new(boxed);
-    // The Box itself is on the heap, plus the Vec's allocation
     let expected_heap_size = size_of::<Vec<u32>>() + 3 * size_of::<u32>();
     assert_eq!(cell.get_heap_size(), expected_heap_size);
 
-    // Test RefCell with StandardTracker
     let cell = RefCell::new(String::from("tracker"));
     let (heap_size, _tracker) = cell.get_heap_size_with_tracker(StandardTracker::new());
-    assert_eq!(heap_size, 7); // "tracker" is 7 bytes
+    assert_eq!(heap_size, 7);
     assert_eq!(heap_size, cell.get_heap_size());
 
-    // Test RefCell with unit type
     let cell = RefCell::new(());
     assert_eq!(cell.get_heap_size(), 0);
     assert_eq!(cell.get_size(), size_of::<RefCell<()>>());
+}
+
+#[test]
+fn covers_heap_size_function() {
+    let value = String::from("heap");
+    assert_eq!(heap_size(&value), value.get_heap_size());
+}
+
+#[test]
+fn covers_ranges() {
+    let range = String::from("ab")..String::from("cde");
+    let range_expected = range.start.get_heap_size() + range.end.get_heap_size();
+    assert_eq!(range.get_heap_size(), range_expected);
+
+    let from = (String::from("abcdef"))..;
+    assert_eq!(from.get_heap_size(), from.start.get_heap_size());
+
+    let to = ..String::from("xyz");
+    assert_eq!(to.get_heap_size(), to.end.get_heap_size());
+
+    let to_inclusive = ..=String::from("xyz");
+    assert_eq!(
+        to_inclusive.get_heap_size(),
+        to_inclusive.end.get_heap_size()
+    );
+
+    let full = ..;
+    assert_eq!(full.get_heap_size(), 0);
+
+    let inclusive = String::from("left")..=String::from("right");
+    let inclusive_expected = inclusive.start().get_heap_size() + inclusive.end().get_heap_size();
+    assert_eq!(inclusive.get_heap_size(), inclusive_expected);
+}
+
+#[test]
+fn covers_collections_remaining_branches() {
+    let mut btree_set = BTreeSet::new();
+    btree_set.insert(String::from("set"));
+    assert!(btree_set.get_heap_size() >= btree_set.iter().map(GetSize::get_size).sum::<usize>());
+
+    let mut linked = LinkedList::new();
+    linked.push_back(String::from("linked"));
+    assert!(linked.get_heap_size() >= linked.iter().map(GetSize::get_size).sum::<usize>());
+
+    let mut btree_map = BTreeMap::new();
+    btree_map.insert(String::from("k"), String::from("value"));
+    assert!(btree_map.get_heap_size() >= 6);
+
+    let mut hash_map = HashMap::new();
+    hash_map.insert(String::from("k"), String::from("value"));
+    assert!(hash_map.get_heap_size() >= std::mem::size_of::<(String, String)>());
+
+    let mut hash_set = HashSet::new();
+    hash_set.insert(String::from("value"));
+    assert!(hash_set.get_heap_size() >= std::mem::size_of::<String>());
+
+    let mut heap = BinaryHeap::new();
+    heap.push(String::from("value"));
+    assert!(heap.get_heap_size() >= std::mem::size_of::<String>());
+
+    let mut deque = VecDeque::new();
+    deque.push_back(String::from("value"));
+    assert!(deque.get_heap_size() >= std::mem::size_of::<String>());
+}
+
+#[test]
+fn covers_ownership_remaining_branches() {
+    let arc = Arc::new(String::from("arc"));
+    let pair = (Arc::clone(&arc), Arc::clone(&arc));
+    let (tracked_size, _) = pair.get_heap_size_with_tracker(StandardTracker::new());
+    assert_eq!(tracked_size, arc.as_ref().get_size());
+
+    let none_value: Option<String> = None;
+    assert_eq!(none_value.get_heap_size(), 0);
+
+    let err_value: Result<u32, String> = Err(String::from("err"));
+    assert!(err_value.get_heap_size() >= 3);
+
+    let rc = Rc::new(String::from("weak"));
+    let weak: RcWeak<String> = Rc::downgrade(&rc);
+    assert_eq!(weak.get_heap_size(), 0);
+
+    let arc2 = Arc::new(String::from("weak"));
+    let weak2: ArcWeak<String> = Arc::downgrade(&arc2);
+    assert_eq!(weak2.get_heap_size(), 0);
+}
+
+#[test]
+fn covers_std_types_remaining_branches() {
+    let c_string = match CString::new("abc") {
+        Ok(v) => v,
+        Err(err) => panic!("CString::new failed: {err}"),
+    };
+    assert_eq!(c_string.get_heap_size(), 4);
+
+    let c_str: &CStr = c_string.as_c_str();
+    assert_eq!(c_str.get_heap_size(), 4);
+
+    let os_string = OsString::from("hello");
+    assert_eq!(os_string.get_heap_size(), os_string.len());
+
+    let os_str: &OsStr = os_string.as_os_str();
+    assert_eq!(os_str.get_heap_size(), os_str.len());
+
+    let path_buf = PathBuf::from("folder/file.txt");
+    assert!(path_buf.get_heap_size() >= path_buf.as_os_str().len());
+
+    let path: &Path = path_buf.as_path();
+    assert_eq!(path.get_heap_size(), 0);
+
+    let reader = BufReader::with_capacity(32, &b"input"[..]);
+    assert!(reader.get_heap_size() >= 32);
+
+    let writer = BufWriter::with_capacity(16, Vec::<u8>::new());
+    assert!(writer.get_heap_size() >= 16);
+}
+
+#[test]
+fn covers_sync_impls_and_tracker_paths() {
+    let cell = RefCell::new(String::from("mutably-borrowed"));
+    let borrowed = cell.borrow_mut();
+    assert_eq!(cell.get_heap_size(), 0);
+    drop(borrowed);
+    assert!(cell.get_heap_size() >= "mutably-borrowed".len());
+
+    let empty_lock: OnceLock<String> = OnceLock::new();
+    assert_eq!(empty_lock.get_heap_size(), 0);
+    let full_lock = OnceLock::from(String::from("set"));
+    assert!(full_lock.get_heap_size() >= 3);
+
+    let mutex = Mutex::new(String::from("poisoned"));
+    std::thread::scope(|scope| {
+        let handle = scope.spawn(|| {
+            let _guard = match mutex.lock() {
+                Ok(guard) => guard,
+                Err(err) => err.into_inner(),
+            };
+            panic!("intentional poison");
+        });
+        assert!(handle.join().is_err());
+    });
+    assert!(mutex.get_heap_size() >= 8);
+
+    let rwlock = RwLock::new(String::from("poisoned"));
+    std::thread::scope(|scope| {
+        let handle = scope.spawn(|| {
+            let _guard = match rwlock.write() {
+                Ok(guard) => guard,
+                Err(err) => err.into_inner(),
+            };
+            panic!("intentional poison");
+        });
+        assert!(handle.join().is_err());
+    });
+    assert!(rwlock.get_heap_size() >= 8);
+}
+
+#[test]
+fn covers_tracker_trait_forwarders() {
+    let value = 123_u64;
+    let addr = &raw const value;
+
+    let mut base = StandardTracker::new();
+    let mut by_ref = &mut base;
+    assert!(GetSizeTracker::track(&mut by_ref, addr));
+    assert!(!GetSizeTracker::track(&mut by_ref, addr));
+
+    let mut boxed = Box::new(StandardTracker::new());
+    assert!(GetSizeTracker::track(&mut boxed, addr));
+    assert!(!GetSizeTracker::track(&mut boxed, addr));
+
+    let mut locked = Mutex::new(StandardTracker::new());
+    assert!(GetSizeTracker::track(&mut locked, addr));
+    assert!(!GetSizeTracker::track(&mut locked, addr));
+
+    let mut rw_locked = RwLock::new(StandardTracker::new());
+    assert!(GetSizeTracker::track(&mut rw_locked, addr));
+    assert!(!GetSizeTracker::track(&mut rw_locked, addr));
+
+    let mut arc_mutex = Arc::new(Mutex::new(StandardTracker::new()));
+    assert!(GetSizeTracker::track(&mut arc_mutex, addr));
+    assert!(!GetSizeTracker::track(&mut arc_mutex, addr));
+
+    let mut arc_rwlock = Arc::new(RwLock::new(StandardTracker::new()));
+    assert!(GetSizeTracker::track(&mut arc_rwlock, addr));
+    assert!(!GetSizeTracker::track(&mut arc_rwlock, addr));
+
+    let mut tracker = StandardTracker::new();
+    assert!(tracker.track(addr));
+    tracker.clear();
+    assert!(tracker.track(addr));
+
+    let mut no_tracker = NoTracker::new(false);
+    assert!(!no_tracker.answer());
+    assert!(!no_tracker.track(addr));
+    no_tracker.set_answer(true);
+    assert!(no_tracker.answer());
+    assert!(no_tracker.track(addr));
 }
