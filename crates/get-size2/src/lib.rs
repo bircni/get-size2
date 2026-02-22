@@ -9,7 +9,7 @@ mod impls;
 mod tracker;
 pub use tracker::*;
 #[cfg(test)]
-mod test;
+mod tests;
 
 /// Determines how many bytes the object occupies inside the heap.
 pub fn heap_size<T: GetSize>(value: &T) -> usize {

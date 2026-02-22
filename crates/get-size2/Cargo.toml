@@ -9,7 +9,7 @@ readme = "README.md"
 repository = "https://github.com/bircni/get-size2"
 keywords = ["size", "heap", "ram", "memory", "get-size"]
 categories = ["memory-management", "caching"]
-exclude = ["examples/*"]
+exclude = ["examples/*", "tests/*"]
 
 [lints]
 workspace = true
