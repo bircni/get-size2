@@ -21,7 +21,7 @@ bytes = { version = "1", default-features = false, optional = true }
 chrono = { version = "0.4", default-features = false, optional = true }
 chrono-tz = { version = "0.10", default-features = false, optional = true }
 compact_str = { version = "0.9", default-features = false, optional = true }
-hashbrown = { version = "0.16", default-features = false, optional = true }
+hashbrown = { version = "0.17", default-features = false, optional = true }
 indexmap = { version = "2.13", default-features = false, optional = true }
 ordermap = { version = "1.1", default-features = false, optional = true }
 smallvec = { version = "1", default-features = false, optional = true }
