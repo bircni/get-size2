@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
+## [0.8.0](https://github.com/bircni/get-size2/compare/0.7.4..0.8.0) - 2026-04-20
+
+### Bug Fixes
+
+- **(changelog)** add space after breaking change indicator in commit message formatting - ([dd2c41f](https://github.com/bircni/get-size2/commit/dd2c41f8ffef291f280b437d311aaae19e915ba5)) - Nicolas
+
+### Features
+
+- **(dependencies)** update indexmap to 2.13 and ordermap to 1.1 - ([af4b9dd](https://github.com/bircni/get-size2/commit/af4b9ddb50631feceecc18e3cca2630de6a4e8af)) - Nicolas
+- **(dependencies)** Update hashbrown, indexmap & ordermap - ([b152bfd](https://github.com/bircni/get-size2/commit/b152bfddd05a44c08620d02d3cd47e94c7ee0cee)) - Nicolas
+
+### Tests
+
+- Enhance test coverage and layout - ([f676529](https://github.com/bircni/get-size2/commit/f6765296b39d3b419ee524d61365b2e744bae9cb)) - Nicolas
+
 ## [0.7.4](https://github.com/bircni/get-size2/compare/0.7.3..0.7.4) - 2026-01-25
 
 ### Bug Fixes
@@ -155,4 +170,4 @@ All notable changes to this project will be documented in this file. See [conven
 
 - Remove need of use get_size::GetSize for #[derive(get_size::GetSize)] (#3) - ([067e8e3](https://github.com/bircni/get-size2/commit/067e8e37fc0071497f90e51726f1c3819f11246d)) - Nicolas
 
-## [0.1.0-beta.1] - 2024-09-13
+## [0.1.4] - 2023-06-23
