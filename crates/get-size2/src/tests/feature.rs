@@ -164,7 +164,7 @@ fn test_indexmap() {
 }
 
 #[test]
-fn parking_lot() {
+fn test_parking_lot() {
     use std::sync::Arc;
 
     const S: &str = "Hello world";
