@@ -164,6 +164,27 @@ fn test_indexmap() {
 }
 
 #[test]
+fn parking_lot() {
+    use std::sync::Arc;
+
+    const S: &str = "Hello world";
+
+    let mut v = Vec::with_capacity(1);
+    v.push(String::from(S));
+    let expected = size_of::<String>() + S.len();
+
+    let m = parking_lot::Mutex::new(v.clone());
+    assert_eq!(m.get_heap_size(), expected);
+
+    let r = parking_lot::RwLock::new(v);
+    assert_eq!(r.get_heap_size(), expected);
+
+    let tracker = Arc::new(parking_lot::Mutex::new(StandardTracker::new()));
+    let (size, _) = r.get_heap_size_with_tracker(tracker);
+    assert_eq!(size, expected);
+}
+
+#[test]
 fn test_ordermap() {
     use std::hash::RandomState;
 
