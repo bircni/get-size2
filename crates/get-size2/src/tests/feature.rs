@@ -67,6 +67,17 @@ fn compact_str() {
 }
 
 #[test]
+fn test_half() {
+    let a = half::f16::from_f32(1.5);
+    assert_eq!(a.get_heap_size(), 0);
+    assert_eq!(a.get_size(), size_of::<half::f16>());
+
+    let b = half::bf16::from_f32(1.5);
+    assert_eq!(b.get_heap_size(), 0);
+    assert_eq!(b.get_size(), size_of::<half::bf16>());
+}
+
+#[test]
 fn hashbrown() {
     use std::hash::{BuildHasher, RandomState};
 
