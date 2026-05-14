@@ -67,6 +67,21 @@ fn compact_str() {
 }
 
 #[test]
+fn test_dashmap() {
+    const VALUE_STR: &str = "Hello world";
+
+    let map: dashmap::DashMap<i32, String> = dashmap::DashMap::new();
+    assert_eq!(map.get_heap_size(), 0);
+    map.insert(0, String::from(VALUE_STR));
+    assert!(map.get_heap_size() >= size_of::<(i32, String)>() + VALUE_STR.len());
+
+    let set: dashmap::DashSet<String> = dashmap::DashSet::new();
+    assert_eq!(set.get_heap_size(), 0);
+    set.insert(String::from(VALUE_STR));
+    assert!(set.get_heap_size() >= size_of::<String>() + VALUE_STR.len());
+}
+
+#[test]
 fn hashbrown() {
     use std::hash::{BuildHasher, RandomState};
 
