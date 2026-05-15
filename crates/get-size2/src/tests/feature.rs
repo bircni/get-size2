@@ -82,6 +82,17 @@ fn test_dashmap() {
 }
 
 #[test]
+fn test_half() {
+    let a = half::f16::from_f32(1.5);
+    assert_eq!(a.get_heap_size(), 0);
+    assert_eq!(a.get_size(), size_of::<half::f16>());
+
+    let b = half::bf16::from_f32(1.5);
+    assert_eq!(b.get_heap_size(), 0);
+    assert_eq!(b.get_size(), size_of::<half::bf16>());
+}
+
+#[test]
 fn hashbrown() {
     use std::hash::{BuildHasher, RandomState};
 
@@ -176,6 +187,26 @@ fn test_indexmap() {
     assert_eq!(set.get_heap_size(), 0);
     set.insert(String::from(VALUE_STR));
     assert!(set.get_heap_size() >= size_of::<String>() + VALUE_STR.len());
+}
+
+#[test]
+fn test_parking_lot() {
+    use std::sync::Arc;
+
+    const S: &str = "Hello world";
+
+    let v = vec![String::from(S)];
+    let expected = size_of::<String>() + S.len();
+
+    let m = parking_lot::Mutex::new(v.clone());
+    assert_eq!(m.get_heap_size(), expected);
+
+    let r = parking_lot::RwLock::new(v);
+    assert_eq!(r.get_heap_size(), expected);
+
+    let tracker = Arc::new(parking_lot::Mutex::new(StandardTracker::new()));
+    let (size, _) = r.get_heap_size_with_tracker(tracker);
+    assert_eq!(size, expected);
 }
 
 #[test]
