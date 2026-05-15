@@ -67,6 +67,21 @@ fn compact_str() {
 }
 
 #[test]
+fn test_dashmap() {
+    const VALUE_STR: &str = "Hello world";
+
+    let map: dashmap::DashMap<i32, String> = dashmap::DashMap::new();
+    assert_eq!(map.get_heap_size(), 0);
+    map.insert(0, String::from(VALUE_STR));
+    assert!(map.get_heap_size() >= size_of::<(i32, String)>() + VALUE_STR.len());
+
+    let set: dashmap::DashSet<String> = dashmap::DashSet::new();
+    assert_eq!(set.get_heap_size(), 0);
+    set.insert(String::from(VALUE_STR));
+    assert!(set.get_heap_size() >= size_of::<String>() + VALUE_STR.len());
+}
+
+#[test]
 fn test_half() {
     let a = half::f16::from_f32(1.5);
     assert_eq!(a.get_heap_size(), 0);
@@ -180,8 +195,7 @@ fn test_parking_lot() {
 
     const S: &str = "Hello world";
 
-    let mut v = Vec::with_capacity(1);
-    v.push(String::from(S));
+    let v = vec![String::from(S)];
     let expected = size_of::<String>() + S.len();
 
     let m = parking_lot::Mutex::new(v.clone());

@@ -8,6 +8,8 @@ mod chrono;
 mod chrono_tz;
 #[cfg(feature = "compact-str")]
 mod compact_str;
+#[cfg(feature = "dashmap")]
+mod dashmap;
 #[cfg(feature = "half")]
 mod half;
 #[cfg(feature = "hashbrown")]

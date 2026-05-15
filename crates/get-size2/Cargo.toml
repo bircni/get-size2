@@ -21,6 +21,7 @@ bytes = { version = "1", default-features = false, optional = true }
 chrono = { version = "0.4", default-features = false, optional = true }
 chrono-tz = { version = "0.10", default-features = false, optional = true }
 compact_str = { version = "0.9", default-features = false, optional = true }
+dashmap = { version = "6", default-features = false, optional = true }
 half = { version = "2", default-features = false, optional = true }
 hashbrown = { version = "0.17", default-features = false, optional = true }
 indexmap = { version = "2.14", default-features = false, optional = true }
@@ -37,6 +38,7 @@ get-size2 = { path = ".", features = [
     "chrono",
     "chrono-tz",
     "compact-str",
+    "dashmap",
     "half",
     "hashbrown",
     "indexmap",
@@ -55,6 +57,7 @@ bytes = ["dep:bytes"]
 chrono = ["dep:chrono"]
 chrono-tz = ["dep:chrono-tz"]
 compact-str = ["dep:compact_str"]
+dashmap = ["dep:dashmap"]
 half = ["dep:half"]
 hashbrown = ["dep:hashbrown"]
 indexmap = ["dep:indexmap"]
