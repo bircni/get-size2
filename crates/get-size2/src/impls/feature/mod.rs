@@ -14,6 +14,8 @@ mod hashbrown;
 mod indexmap;
 #[cfg(feature = "ordermap")]
 mod ordermap;
+#[cfg(feature = "parking_lot")]
+mod parking_lot;
 #[cfg(feature = "smallvec")]
 mod smallvec;
 #[cfg(feature = "thin-vec")]
