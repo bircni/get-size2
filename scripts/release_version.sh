@@ -31,6 +31,7 @@ fi
 echo "Calculated version: $version"
 echo "Updating version in Cargo.toml..."
 cargo verset package -v "$version"
+cargo verset dependency -n get-size-derive2 -v "$version"
 echo "Version updated successfully in Cargo.toml."
 
 # Generate the changelog

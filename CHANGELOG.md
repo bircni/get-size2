@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
+## [0.9.0](https://github.com/bircni/get-size2/compare/0.8.0..0.9.0) - 2026-05-15
+
+### Features
+
+- Add parking_lot feature with GetSize + GetSizeTracker impls (#46) - ([18b15c8](https://github.com/bircni/get-size2/commit/18b15c89b3ab662a7ca3c5c4b9df82dc41e1093a)) - Al Johri
+- Add half feature with GetSize impls for f16 and bf16 (#47) - ([725777b](https://github.com/bircni/get-size2/commit/725777b9049dd50b6791c6e45add1ecd2ad282e7)) - Al Johri
+- Add dashmap feature with GetSize impls for DashMap and DashSet (#48) - ([faf1b09](https://github.com/bircni/get-size2/commit/faf1b09dfb4ae16a296f89ead81fe82ba3495036)) - Al Johri
+
 ## [0.8.0](https://github.com/bircni/get-size2/compare/0.7.4..0.8.0) - 2026-04-20
 
 ### Bug Fixes
