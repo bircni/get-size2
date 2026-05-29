@@ -254,6 +254,20 @@ fn test_roaring_bitmap() {
     let stats = wide.statistics();
     assert!(stats.n_bitset_containers >= 1);
     assert!(wide.get_heap_size() as u64 >= stats.n_bytes_bitset_containers);
+
+    // Run containers are produced by `optimize()` when a container has
+    // long dense runs. Verify we count run-container bytes too.
+    let mut run = (0..10_000).collect::<roaring::RoaringBitmap>();
+    run.optimize();
+    let stats = run.statistics();
+    assert!(stats.n_run_containers >= 1);
+    assert!(run.get_heap_size() as u64 >= stats.n_bytes_run_containers);
+
+    // Tracker-variant: threading a real tracker through must return the
+    // same size as the no-tracker path.
+    let tracker = StandardTracker::new();
+    let (size, _) = wide.get_heap_size_with_tracker(tracker);
+    assert_eq!(size, wide.get_heap_size());
 }
 
 #[test]
@@ -274,4 +288,10 @@ fn test_roaring_treemap() {
     }
     assert_eq!(bitmap_count, 2);
     assert_eq!(tm.get_heap_size(), expected_inner);
+
+    // Tracker-variant: threading a tracker through the BTreeMap walk
+    // must match the no-tracker path.
+    let tracker = StandardTracker::new();
+    let (size, _) = tm.get_heap_size_with_tracker(tracker);
+    assert_eq!(size, tm.get_heap_size());
 }
