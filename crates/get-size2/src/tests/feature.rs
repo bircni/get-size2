@@ -249,11 +249,17 @@ fn test_roaring_bitmap() {
     assert!(dense.get_heap_size() > 0);
 
     // Bitmap container kicks in past ~4096 entries; verify we count
-    // the fixed 8 KiB allocation.
+    // the fixed 8 KiB allocation. Equality against the sum of all three
+    // flavor totals catches regressions that drop a flavor.
     let wide: roaring::RoaringBitmap = (0..5000).collect();
     let stats = wide.statistics();
     assert!(stats.n_bitset_containers >= 1);
-    assert!(wide.get_heap_size() as u64 >= stats.n_bytes_bitset_containers);
+    assert_eq!(
+        wide.get_heap_size() as u64,
+        stats.n_bytes_array_containers
+            + stats.n_bytes_bitset_containers
+            + stats.n_bytes_run_containers
+    );
 
     // Run containers are produced by `optimize()` when a container has
     // long dense runs. Verify we count run-container bytes too.
@@ -261,7 +267,12 @@ fn test_roaring_bitmap() {
     run.optimize();
     let stats = run.statistics();
     assert!(stats.n_run_containers >= 1);
-    assert!(run.get_heap_size() as u64 >= stats.n_bytes_run_containers);
+    assert_eq!(
+        run.get_heap_size() as u64,
+        stats.n_bytes_array_containers
+            + stats.n_bytes_bitset_containers
+            + stats.n_bytes_run_containers
+    );
 
     // Tracker-variant: threading a real tracker through must return the
     // same size as the no-tracker path.
@@ -275,10 +286,14 @@ fn test_roaring_treemap() {
     let empty = roaring::RoaringTreemap::new();
     assert_eq!(empty.get_heap_size(), 0);
 
-    // Two high-32-bit partitions → two inner RoaringBitmaps.
+    // Two high-32-bit partitions → two inner RoaringBitmaps. The second
+    // partition holds many values so the per-bitmap heap size is
+    // non-trivial (exercises propagation through the BTreeMap walk).
     let mut tm = roaring::RoaringTreemap::new();
     tm.insert(1);
-    tm.insert((1u64 << 32) + 1);
+    for v in 0..5000u64 {
+        tm.insert((1u64 << 32) + v);
+    }
     let mut bitmap_count = 0;
     let mut expected_inner: usize = 0;
     for (_, bitmap) in tm.bitmaps() {
