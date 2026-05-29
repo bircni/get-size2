@@ -232,3 +232,46 @@ fn test_ordermap() {
     set.insert(String::from(VALUE_STR));
     assert!(set.get_heap_size() >= size_of::<String>() + VALUE_STR.len());
 }
+
+#[test]
+fn test_roaring_bitmap() {
+    // Empty bitmap: no containers, no allocations.
+    let empty = roaring::RoaringBitmap::new();
+    assert_eq!(empty.get_heap_size(), 0);
+
+    // Dense run that fits in one array container: should equal what
+    // `statistics()` reports for an array container — `capacity * 4`.
+    let dense: roaring::RoaringBitmap = (1..100).collect();
+    let stats = dense.statistics();
+    assert_eq!(stats.n_containers, 1);
+    assert_eq!(stats.n_array_containers, 1);
+    assert_eq!(dense.get_heap_size() as u64, stats.n_bytes_array_containers);
+    assert!(dense.get_heap_size() > 0);
+
+    // Bitmap container kicks in past ~4096 entries; verify we count
+    // the fixed 8 KiB allocation.
+    let wide: roaring::RoaringBitmap = (0..5000).collect();
+    let stats = wide.statistics();
+    assert!(stats.n_bitset_containers >= 1);
+    assert!(wide.get_heap_size() as u64 >= stats.n_bytes_bitset_containers);
+}
+
+#[test]
+fn test_roaring_treemap() {
+    let empty = roaring::RoaringTreemap::new();
+    assert_eq!(empty.get_heap_size(), 0);
+
+    // Two high-32-bit partitions → two inner RoaringBitmaps.
+    let mut tm = roaring::RoaringTreemap::new();
+    tm.insert(1);
+    tm.insert((1u64 << 32) + 1);
+    let mut bitmap_count = 0;
+    let mut expected_inner: usize = 0;
+    for (_, bitmap) in tm.bitmaps() {
+        bitmap_count += 1;
+        expected_inner +=
+            bitmap.get_heap_size() + size_of::<u32>() + size_of::<roaring::RoaringBitmap>();
+    }
+    assert_eq!(bitmap_count, 2);
+    assert_eq!(tm.get_heap_size(), expected_inner);
+}
