@@ -2,17 +2,10 @@ use orx_concurrent_vec::{ConcurrentElement, ConcurrentVec, IntoConcurrentPinnedV
 
 use crate::{GetSize, GetSizeTracker};
 
-// `ConcurrentVec<T, P>` is backed by a `PinnedVec` of `ConcurrentElement<T>`
-// slots; each slot is a `ConcurrentElement<T>` (an atomic-state wrapper
-// around `T`) sized at `size_of::<ConcurrentElement<T>>()`. Heap layout
-// matches `Vec`: `capacity()` × per-slot size, plus the recursive heap
-// of each occupied element. This mirrors the `Vec<T>` impl pattern in
-// `collections.rs`.
-//
-// Not counted: per-fragment metadata in the backing `SplitVec`
-// (fragment pointer/length pairs). For a `Doubling` growth strategy
-// this is bounded by ~`log2(capacity)` fragments — tens of bytes total
-// regardless of corpus size.
+// `ConcurrentVec::new()` eagerly allocates an initial fragment, so
+// `capacity()` is nonzero even for an empty vec. Backing `SplitVec`
+// fragment headers are not counted (bounded by a small constant for
+// the default Doubling growth strategy).
 
 impl<T, P> GetSize for ConcurrentVec<T, P>
 where

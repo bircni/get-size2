@@ -239,15 +239,12 @@ fn test_orx_concurrent_vec() {
 
     const S: &str = "Hello world";
 
-    // Empty vec: `ConcurrentVec::new()` eagerly allocates an initial
-    // fragment (unlike `Vec::new()`), so heap = capacity × slot size.
     let empty: ConcurrentVec<u32> = ConcurrentVec::new();
     assert_eq!(
         empty.get_heap_size(),
         empty.capacity() * size_of::<ConcurrentElement<u32>>()
     );
 
-    // Copy element after growth: same formula.
     let vec: ConcurrentVec<u32> = ConcurrentVec::new();
     vec.extend(0u32..16);
     assert_eq!(
@@ -255,14 +252,12 @@ fn test_orx_concurrent_vec() {
         vec.capacity() * size_of::<ConcurrentElement<u32>>()
     );
 
-    // Owned element (String): heap is allocation + each String's capacity.
     let vec: ConcurrentVec<String> = ConcurrentVec::new();
     vec.push(String::from(S));
     vec.push(String::from(S));
     let expected = vec.capacity() * size_of::<ConcurrentElement<String>>() + S.len() * 2;
     assert_eq!(vec.get_heap_size(), expected);
 
-    // Tracker-variant: threading a tracker matches the no-tracker path.
     let tracker = StandardTracker::new();
     let (size, _) = vec.get_heap_size_with_tracker(tracker);
     assert_eq!(size, vec.get_heap_size());
