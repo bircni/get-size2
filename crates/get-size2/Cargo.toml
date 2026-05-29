@@ -26,6 +26,7 @@ half = { version = "2", default-features = false, optional = true }
 hashbrown = { version = "0.17", default-features = false, optional = true }
 indexmap = { version = "2.14", default-features = false, optional = true }
 ordermap = { version = "1.2", default-features = false, optional = true }
+orx-concurrent-vec = { version = "3.10", default-features = false, optional = true }
 parking_lot = { version = "0.12", default-features = false, optional = true }
 smallvec = { version = "1", default-features = false, optional = true }
 thin-vec = { version = "0.2", default-features = false, optional = true }
@@ -43,6 +44,7 @@ get-size2 = { path = ".", features = [
     "hashbrown",
     "indexmap",
     "ordermap",
+    "orx-concurrent-vec",
     "parking_lot",
     "smallvec",
     "thin-vec",
@@ -62,6 +64,7 @@ half = ["dep:half"]
 hashbrown = ["dep:hashbrown"]
 indexmap = ["dep:indexmap"]
 ordermap = ["dep:ordermap"]
+orx-concurrent-vec = ["dep:orx-concurrent-vec"]
 parking_lot = ["dep:parking_lot"]
 smallvec = ["dep:smallvec"]
 thin-vec = ["dep:thin-vec"]
