@@ -309,6 +309,8 @@ fn test_roaring_treemap() {
     let tracker = StandardTracker::new();
     let (size, _) = tm.get_heap_size_with_tracker(tracker);
     assert_eq!(size, tm.get_heap_size());
+}
+
 fn test_orx_concurrent_vec() {
     use orx_concurrent_vec::{ConcurrentElement, ConcurrentVec};
 
