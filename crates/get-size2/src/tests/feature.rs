@@ -232,3 +232,33 @@ fn test_ordermap() {
     set.insert(String::from(VALUE_STR));
     assert!(set.get_heap_size() >= size_of::<String>() + VALUE_STR.len());
 }
+
+#[test]
+fn test_orx_concurrent_vec() {
+    use orx_concurrent_vec::{ConcurrentElement, ConcurrentVec};
+
+    const S: &str = "Hello world";
+
+    let empty: ConcurrentVec<u32> = ConcurrentVec::new();
+    assert_eq!(
+        empty.get_heap_size(),
+        empty.capacity() * size_of::<ConcurrentElement<u32>>()
+    );
+
+    let vec: ConcurrentVec<u32> = ConcurrentVec::new();
+    vec.extend(0u32..16);
+    assert_eq!(
+        vec.get_heap_size(),
+        vec.capacity() * size_of::<ConcurrentElement<u32>>()
+    );
+
+    let vec: ConcurrentVec<String> = ConcurrentVec::new();
+    vec.push(String::from(S));
+    vec.push(String::from(S));
+    let expected = vec.capacity() * size_of::<ConcurrentElement<String>>() + S.len() * 2;
+    assert_eq!(vec.get_heap_size(), expected);
+
+    let tracker = StandardTracker::new();
+    let (size, _) = vec.get_heap_size_with_tracker(tracker);
+    assert_eq!(size, vec.get_heap_size());
+}
