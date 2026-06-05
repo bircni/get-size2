@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
+## [0.10.0](https://github.com/bircni/get-size2/compare/0.9.0..0.10.0) - 2026-06-05
+
+### Features
+
+- Add orx-concurrent-vec feature with GetSize impl for ConcurrentVec (#50) - ([b509203](https://github.com/bircni/get-size2/commit/b509203df98d4e2d371c7ec94aca90f3480593ff)) - Al Johri
+- Add roaring feature with GetSize impls for RoaringBitmap and RoaringTreemap (#49) - ([6b411c1](https://github.com/bircni/get-size2/commit/6b411c1d611a6226319cc3375d6f81fc1ec58283)) - Al Johri
+
 ## [0.9.0](https://github.com/bircni/get-size2/compare/0.8.0..0.9.0) - 2026-05-15
 
 ### Features
