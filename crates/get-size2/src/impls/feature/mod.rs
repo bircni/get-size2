@@ -18,6 +18,8 @@ mod hashbrown;
 mod indexmap;
 #[cfg(feature = "ordermap")]
 mod ordermap;
+#[cfg(feature = "orx-concurrent-vec")]
+mod orx_concurrent_vec;
 #[cfg(feature = "parking_lot")]
 mod parking_lot;
 #[cfg(feature = "roaring")]
