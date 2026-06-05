@@ -22,6 +22,8 @@ mod ordermap;
 mod orx_concurrent_vec;
 #[cfg(feature = "parking_lot")]
 mod parking_lot;
+#[cfg(feature = "roaring")]
+mod roaring;
 #[cfg(feature = "smallvec")]
 mod smallvec;
 #[cfg(feature = "thin-vec")]

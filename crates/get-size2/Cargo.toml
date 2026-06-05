@@ -28,6 +28,7 @@ indexmap = { version = "2.14", default-features = false, optional = true }
 ordermap = { version = "1.2", default-features = false, optional = true }
 orx-concurrent-vec = { version = "3.10", default-features = false, optional = true }
 parking_lot = { version = "0.12", default-features = false, optional = true }
+roaring = { version = "0.11", default-features = false, optional = true }
 smallvec = { version = "1", default-features = false, optional = true }
 thin-vec = { version = "0.2", default-features = false, optional = true }
 url = { version = "2", default-features = false, optional = true }
@@ -46,6 +47,7 @@ get-size2 = { path = ".", features = [
     "ordermap",
     "orx-concurrent-vec",
     "parking_lot",
+    "roaring",
     "smallvec",
     "thin-vec",
     "url",
@@ -66,6 +68,7 @@ indexmap = ["dep:indexmap"]
 ordermap = ["dep:ordermap"]
 orx-concurrent-vec = ["dep:orx-concurrent-vec"]
 parking_lot = ["dep:parking_lot"]
+roaring = ["dep:roaring"]
 smallvec = ["dep:smallvec"]
 thin-vec = ["dep:thin-vec"]
 url = ["dep:url"]

@@ -234,6 +234,83 @@ fn test_ordermap() {
 }
 
 #[test]
+fn test_roaring_bitmap() {
+    // Empty bitmap: no containers, no allocations.
+    let empty = roaring::RoaringBitmap::new();
+    assert_eq!(empty.get_heap_size(), 0);
+
+    // Dense run that fits in one array container: should equal what
+    // `statistics()` reports for an array container — `capacity * 4`.
+    let dense: roaring::RoaringBitmap = (1..100).collect();
+    let stats = dense.statistics();
+    assert_eq!(stats.n_containers, 1);
+    assert_eq!(stats.n_array_containers, 1);
+    assert_eq!(dense.get_heap_size() as u64, stats.n_bytes_array_containers);
+    assert!(dense.get_heap_size() > 0);
+
+    // Bitmap container kicks in past ~4096 entries; verify we count
+    // the fixed 8 KiB allocation. Equality against the sum of all three
+    // flavor totals catches regressions that drop a flavor.
+    let wide: roaring::RoaringBitmap = (0..5000).collect();
+    let stats = wide.statistics();
+    assert!(stats.n_bitset_containers >= 1);
+    assert_eq!(
+        wide.get_heap_size() as u64,
+        stats.n_bytes_array_containers
+            + stats.n_bytes_bitset_containers
+            + stats.n_bytes_run_containers
+    );
+
+    // Run containers are produced by `optimize()` when a container has
+    // long dense runs. Verify we count run-container bytes too.
+    let mut run = (0..10_000).collect::<roaring::RoaringBitmap>();
+    run.optimize();
+    let stats = run.statistics();
+    assert!(stats.n_run_containers >= 1);
+    assert_eq!(
+        run.get_heap_size() as u64,
+        stats.n_bytes_array_containers
+            + stats.n_bytes_bitset_containers
+            + stats.n_bytes_run_containers
+    );
+
+    // Tracker-variant: threading a real tracker through must return the
+    // same size as the no-tracker path.
+    let tracker = StandardTracker::new();
+    let (size, _) = wide.get_heap_size_with_tracker(tracker);
+    assert_eq!(size, wide.get_heap_size());
+}
+
+#[test]
+fn test_roaring_treemap() {
+    let empty = roaring::RoaringTreemap::new();
+    assert_eq!(empty.get_heap_size(), 0);
+
+    // Two high-32-bit partitions → two inner RoaringBitmaps. The second
+    // partition holds many values so the per-bitmap heap size is
+    // non-trivial (exercises propagation through the BTreeMap walk).
+    let mut tm = roaring::RoaringTreemap::new();
+    tm.insert(1);
+    for v in 0..5000u64 {
+        tm.insert((1u64 << 32) + v);
+    }
+    let mut bitmap_count = 0;
+    let mut expected_inner: usize = 0;
+    for (_, bitmap) in tm.bitmaps() {
+        bitmap_count += 1;
+        expected_inner +=
+            bitmap.get_heap_size() + size_of::<u32>() + size_of::<roaring::RoaringBitmap>();
+    }
+    assert_eq!(bitmap_count, 2);
+    assert_eq!(tm.get_heap_size(), expected_inner);
+
+    // Tracker-variant: threading a tracker through the BTreeMap walk
+    // must match the no-tracker path.
+    let tracker = StandardTracker::new();
+    let (size, _) = tm.get_heap_size_with_tracker(tracker);
+    assert_eq!(size, tm.get_heap_size());
+}
+
 fn test_orx_concurrent_vec() {
     use orx_concurrent_vec::{ConcurrentElement, ConcurrentVec};
 
