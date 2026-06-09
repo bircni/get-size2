@@ -285,6 +285,16 @@ fn boxed_slice() {
 
     let arc = Arc::<[u8]>::from([1u8; 10]);
     assert_eq!(arc.get_heap_size(), size_of::<u8>() * arc.len());
+
+    let shared_rc = Rc::<[String]>::from([String::from("hello"), String::from("world")]);
+    let (size, _) =
+        (shared_rc.clone(), shared_rc.clone()).get_heap_size_with_tracker(StandardTracker::new());
+    assert_eq!(size, shared_rc.get_heap_size());
+
+    let shared_arc = Arc::<[String]>::from([String::from("hello"), String::from("world")]);
+    let (size, _) =
+        (shared_arc.clone(), shared_arc.clone()).get_heap_size_with_tracker(StandardTracker::new());
+    assert_eq!(size, shared_arc.get_heap_size());
 }
 
 #[test]
@@ -295,8 +305,14 @@ fn boxed_str() {
     let rc: Rc<str> = "a".to_owned().into();
     assert_eq!(rc.get_heap_size(), size_of::<u8>() * boxed.len());
 
+    let (size, _) = (rc.clone(), rc.clone()).get_heap_size_with_tracker(StandardTracker::new());
+    assert_eq!(size, rc.get_heap_size());
+
     let arc: Arc<str> = "a".to_owned().into();
     assert_eq!(arc.get_heap_size(), size_of::<u8>() * boxed.len());
+
+    let (size, _) = (arc.clone(), arc.clone()).get_heap_size_with_tracker(StandardTracker::new());
+    assert_eq!(size, arc.get_heap_size());
 }
 
 #[test]
