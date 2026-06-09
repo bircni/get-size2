@@ -101,7 +101,7 @@ where
     T: GetSize,
 {
     fn get_heap_size_with_tracker<Tr: GetSizeTracker>(&self, mut tracker: Tr) -> (usize, Tr) {
-        if !tracker.track(Rc::as_ptr(self).cast::<()>()) {
+        if !tracker.track(Self::as_ptr(self).cast::<()>()) {
             return (0, tracker);
         }
 
@@ -117,7 +117,7 @@ where
 
 impl GetSize for Rc<str> {
     fn get_heap_size_with_tracker<T: GetSizeTracker>(&self, mut tracker: T) -> (usize, T) {
-        if !tracker.track(Rc::as_ptr(self).cast::<()>()) {
+        if !tracker.track(Self::as_ptr(self).cast::<()>()) {
             return (0, tracker);
         }
 
@@ -130,7 +130,7 @@ where
     T: GetSize,
 {
     fn get_heap_size_with_tracker<Tr: GetSizeTracker>(&self, mut tracker: Tr) -> (usize, Tr) {
-        if !tracker.track(Arc::as_ptr(self).cast::<()>()) {
+        if !tracker.track(Self::as_ptr(self).cast::<()>()) {
             return (0, tracker);
         }
 
@@ -146,7 +146,7 @@ where
 
 impl GetSize for Arc<str> {
     fn get_heap_size_with_tracker<T: GetSizeTracker>(&self, mut tracker: T) -> (usize, T) {
-        if !tracker.track(Arc::as_ptr(self).cast::<()>()) {
+        if !tracker.track(Self::as_ptr(self).cast::<()>()) {
             return (0, tracker);
         }
 
