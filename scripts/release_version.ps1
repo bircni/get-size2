@@ -1,5 +1,10 @@
-# Enable push with follow tags
-git config --global push.followTags true
+# get input release (minor, patch)
+param (
+    [Parameter(Mandatory = $true)][string]$version
+)
+
+Write-Host "Using this version: $version"
+
 
 # Check if git cliff is installed
 if (-not (Get-Command git-cliff -ErrorAction SilentlyContinue)) {
@@ -18,7 +23,6 @@ if (-not (Get-Command cargo-verset -ErrorAction SilentlyContinue)) {
     exit 1
 }
 
-$version = git cliff --bumped-version
 $current_version = git describe --tags
 # Check if the version is already the same as the current version
 if ($version -eq $current_version) {

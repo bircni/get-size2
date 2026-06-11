@@ -1,13 +1,22 @@
 #!/usr/bin/env bash
 
+# read input version
+version="$1"
+
 set -e
 
 # Function to print errors only
 err() { echo "$@" 1>&2; }
 
+# check that version is provided
+if [ -z "$version" ]; then
+    err "No version provided. Usage: $0 <version>"
+    exit 1
+fi
+
 # Check if git-cliff is installed
 if ! command -v git-cliff &> /dev/null; then
-    echo "git-cliff is not installed. Please install it first."
+    err "git-cliff is not installed. Please install it first."
     exit 1
 fi
 
@@ -19,12 +28,11 @@ if ! command -v cargo-verset &> /dev/null; then
 fi
 
 # Get the bumped version from git-cliff
-version=$(git-cliff --bumped-version)
 current_version=$(git describe --tags)
 
 # if the version is the same as the current version, exit
 if [ "$version" == "$current_version" ]; then
-    echo "Version $version is already the current version. No changes made."
+    err "Version $version is already the current version. No changes made."
     exit 0
 fi
 
