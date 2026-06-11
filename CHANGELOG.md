@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
+## [0.10.1](https://github.com/bircni/get-size2/compare/0.10.0..0.10.1) - 2026-06-11
+
+### Bug Fixes
+
+- Track shared DST allocations (#52) - ([9141b6a](https://github.com/bircni/get-size2/commit/9141b6a67600c0accd398fc9c3c71b1f6b360e1e)) - Micha Reiser
+
+### Miscellaneous Chores
+
+- Adjust versioning - ([76ac0ca](https://github.com/bircni/get-size2/commit/76ac0ca330f41bce1cd84f8f29327821b7ae4085)) - Nicolas
+
 ## [0.10.0](https://github.com/bircni/get-size2/compare/0.9.0..0.10.0) - 2026-06-05
 
 ### Features
