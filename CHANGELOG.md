@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
+## [0.10.2](https://github.com/bircni/get-size2/compare/0.10.1..0.10.2) - 2026-07-15
+
+### Bug Fixes
+
+- Bump compact_str to 0.10 (#53) - ([736f9f1](https://github.com/bircni/get-size2/commit/736f9f1d6f53613ce4ab15f764d8b6c0e78b24f1)) - Charlie Marsh
+
 ## [0.10.1](https://github.com/bircni/get-size2/compare/0.10.0..0.10.1) - 2026-06-11
 
 ### Bug Fixes
