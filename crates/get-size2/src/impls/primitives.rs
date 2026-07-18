@@ -5,9 +5,13 @@ use std::num::{
     NonZeroU16, NonZeroU32, NonZeroU64, NonZeroU128, NonZeroUsize,
 };
 use std::sync::atomic::{
-    AtomicBool, AtomicI8, AtomicI16, AtomicI32, AtomicI64, AtomicIsize, AtomicU8, AtomicU16,
-    AtomicU32, AtomicU64, AtomicUsize, Ordering,
+    AtomicBool, AtomicI8, AtomicI16, AtomicI32, AtomicIsize, AtomicU8, AtomicU16, AtomicU32,
+    AtomicUsize, Ordering,
 };
+// `AtomicI64`/`AtomicU64` are only available on targets that support 64-bit atomics.
+// 32-bit targets (e.g. ppc32) lack them, so they must be gated. See issue #54.
+#[cfg(target_has_atomic = "64")]
+use std::sync::atomic::{AtomicI64, AtomicU64};
 use std::time::{Duration, Instant, SystemTime};
 
 use crate::GetSize;
@@ -46,11 +50,13 @@ impl GetSize for AtomicBool {}
 impl GetSize for AtomicI8 {}
 impl GetSize for AtomicI16 {}
 impl GetSize for AtomicI32 {}
+#[cfg(target_has_atomic = "64")]
 impl GetSize for AtomicI64 {}
 impl GetSize for AtomicIsize {}
 impl GetSize for AtomicU8 {}
 impl GetSize for AtomicU16 {}
 impl GetSize for AtomicU32 {}
+#[cfg(target_has_atomic = "64")]
 impl GetSize for AtomicU64 {}
 impl GetSize for AtomicUsize {}
 impl GetSize for Ordering {}
