@@ -45,10 +45,32 @@ jobs:
       - name: Release build
         run: cargo build --release
   
+  cross-check:
+    name: Cross-compile (no 64-bit atomics)
+    runs-on: ubuntu-latest
+    needs: [typos, cargo-machete]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      # `powerpc-unknown-linux-gnu` is a 32-bit target without 64-bit atomics,
+      # which regression-guards the conditional `AtomicI64`/`AtomicU64` impls (issue #54).
+      - name: Add 32-bit target
+        run: rustup target add powerpc-unknown-linux-gnu
+
+      - name: Cache dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: ${{ github.ref_name }}
+
+      - name: Check
+        run: cargo check -p get-size2 --target powerpc-unknown-linux-gnu
+
   check:
     name: Lint & Test
     runs-on: ubuntu-latest
-    needs: build
+    needs: [typos, cargo-machete]
 
     steps:
       - name: Checkout code
@@ -71,7 +93,7 @@ jobs:
   tarpaulin:
     name: Tarpaulin Coverage
     runs-on: ubuntu-latest
-    needs: [build, check]
+    needs: [typos, cargo-machete]
 
     steps:
       - name: Checkout code
