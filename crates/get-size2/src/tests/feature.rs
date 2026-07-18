@@ -339,3 +339,26 @@ fn test_orx_concurrent_vec() {
     let (size, _) = vec.get_heap_size_with_tracker(tracker);
     assert_eq!(size, vec.get_heap_size());
 }
+
+#[test]
+fn test_portable_atomic() {
+    // Atomics are stack-only, so heap size is 0 and total size equals the
+    // type's own size. `AtomicU64`/`AtomicI64`/`AtomicU128`/`AtomicI128` are
+    // the whole point of the feature: they exist here even on targets without
+    // native 64/128-bit atomics.
+    let u64 = portable_atomic::AtomicU64::new(1);
+    assert_eq!(u64.get_heap_size(), 0);
+    assert_eq!(u64.get_size(), size_of::<portable_atomic::AtomicU64>());
+
+    let i64 = portable_atomic::AtomicI64::new(-1);
+    assert_eq!(i64.get_heap_size(), 0);
+    assert_eq!(i64.get_size(), size_of::<portable_atomic::AtomicI64>());
+
+    let u128 = portable_atomic::AtomicU128::new(1);
+    assert_eq!(u128.get_heap_size(), 0);
+    assert_eq!(u128.get_size(), size_of::<portable_atomic::AtomicU128>());
+
+    let b = portable_atomic::AtomicBool::new(true);
+    assert_eq!(b.get_heap_size(), 0);
+    assert_eq!(b.get_size(), size_of::<portable_atomic::AtomicBool>());
+}

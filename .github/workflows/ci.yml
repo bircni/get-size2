@@ -64,8 +64,13 @@ jobs:
         with:
           shared-key: ${{ github.ref_name }}
 
-      - name: Check
+      - name: Check (default features)
         run: cargo check -p get-size2 --target powerpc-unknown-linux-gnu
+
+      # The `portable-atomic` feature must provide `AtomicU64`/`AtomicI64`
+      # (and 128-bit) on exactly these targets — verify it builds here.
+      - name: Check (portable-atomic feature)
+        run: cargo check -p get-size2 --features portable-atomic --target powerpc-unknown-linux-gnu
 
   check:
     name: Lint & Test
