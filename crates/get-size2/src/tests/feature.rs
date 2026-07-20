@@ -174,7 +174,12 @@ fn test_indexmap() {
     let hasher = RandomState::new();
 
     let mut map = indexmap::IndexMap::with_capacity_and_hasher(1, hasher);
-    assert_eq!(map.get_heap_size(), 40);
+    // The allocation is `capacity * size_of::<(K, V)>()`, which is pointer-width
+    // dependent (40 bytes on 64-bit, 20 on 32-bit) — don't hard-code it.
+    assert_eq!(
+        map.get_heap_size(),
+        map.capacity() * size_of::<(&'static str, String)>()
+    );
     map.insert(VALUE_STR, String::from(VALUE_STR));
     assert!(map.get_heap_size() >= size_of::<(&'static str, String)>() + VALUE_STR.len());
 
@@ -218,7 +223,12 @@ fn test_ordermap() {
     let hasher = RandomState::new();
 
     let mut map = ordermap::OrderMap::with_capacity_and_hasher(1, hasher);
-    assert_eq!(map.get_heap_size(), 40);
+    // The allocation is `capacity * size_of::<(K, V)>()`, which is pointer-width
+    // dependent (40 bytes on 64-bit, 20 on 32-bit) — don't hard-code it.
+    assert_eq!(
+        map.get_heap_size(),
+        map.capacity() * size_of::<(&'static str, String)>()
+    );
     map.insert(VALUE_STR, String::from(VALUE_STR));
     assert!(map.get_heap_size() >= size_of::<(&'static str, String)>() + VALUE_STR.len());
 
