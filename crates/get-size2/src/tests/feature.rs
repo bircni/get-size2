@@ -321,6 +321,7 @@ fn test_roaring_treemap() {
     assert_eq!(size, tm.get_heap_size());
 }
 
+#[test]
 fn test_orx_concurrent_vec() {
     use orx_concurrent_vec::{ConcurrentElement, ConcurrentVec};
 
