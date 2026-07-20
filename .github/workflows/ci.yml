@@ -26,68 +26,61 @@ jobs:
         uses: bnjbvr/cargo-machete@main
 
   build:
-    name: Build
+    name: Build & Test (${{ matrix.name }})
     runs-on: ubuntu-latest
     needs: [typos, cargo-machete]
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: 64-bit
+            target: x86_64-unknown-linux-gnu
+          # 32-bit target without 64-bit atomics. Regression-guards the
+          # conditional `AtomicI64`/`AtomicU64` impls (#54) and the
+          # pointer-width-sensitive heap sizes asserted in the tests (#56).
+          - name: 32-bit
+            target: powerpc-unknown-linux-gnu
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
 
+      # Installs the Rust target plus a cross linker and a QEMU runner, so
+      # `cargo test --target` both builds and *executes* the emulated 32-bit
+      # binaries. A no-op wrapper for the native host target.
+      - name: Set up toolchain
+        uses: taiki-e/setup-cross-toolchain-action@v1
+        with:
+          target: ${{ matrix.target }}
+
       - name: Cache dependencies
         uses: Swatinem/rust-cache@v2
         with:
-          shared-key: ${{ github.ref_name }}
+          shared-key: ${{ github.ref_name }}-${{ matrix.target }}
 
       - name: Debug build
-        run: cargo build
+        run: cargo build --all-features --target ${{ matrix.target }}
 
       - name: Release build
-        run: cargo build --release
-  
-  cross-check:
-    name: Cross-compile (no 64-bit atomics)
-    runs-on: ubuntu-latest
-    needs: [typos, cargo-machete]
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v6
-
-      # `powerpc-unknown-linux-gnu` is a 32-bit target without 64-bit atomics,
-      # which regression-guards the conditional `AtomicI64`/`AtomicU64` impls (issue #54).
-      - name: Add 32-bit target
-        run: rustup target add powerpc-unknown-linux-gnu
-
-      - name: Cache dependencies
-        uses: Swatinem/rust-cache@v2
-        with:
-          shared-key: ${{ github.ref_name }}
-
-      - name: Check (default features)
-        run: cargo check -p get-size2 --target powerpc-unknown-linux-gnu
-
-      # The `portable-atomic` feature must provide `AtomicU64`/`AtomicI64`
-      # (and 128-bit) on exactly these targets — verify it builds here.
-      - name: Check (portable-atomic feature)
-        run: cargo check -p get-size2 --features portable-atomic --target powerpc-unknown-linux-gnu
-
-  check:
-    name: Lint & Test
-    runs-on: ubuntu-latest
-    needs: [typos, cargo-machete]
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v6
-
-      - name: Cache dependencies
-        uses: Swatinem/rust-cache@v2
-        with:
-          shared-key: ${{ github.ref_name }}
+        run: cargo build --release --all-features --target ${{ matrix.target }}
 
       - name: Test
-        run: cargo test --all
+        run: cargo test --all --all-features --target ${{ matrix.target }}
+
+  check:
+    name: Lint
+    runs-on: ubuntu-latest
+    needs: [typos, cargo-machete]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Cache dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: ${{ github.ref_name }}-x86_64-unknown-linux-gnu
 
       - name: Format code
         run: cargo fmt --all -- --check
