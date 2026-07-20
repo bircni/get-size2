@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
+## [0.10.3](https://github.com/bircni/get-size2/compare/0.10.2..0.10.3) - 2026-07-20
+
+### Bug Fixes
+
+- Gate 64-bit atomic impls behind target_has_atomic (#54) - ([19e8784](https://github.com/bircni/get-size2/commit/19e87840a80d08bd57c5c326dfc6a7dc0d748b4a)) - bircni
+- Use pointer-width-independent sizes in indexmap/ordermap tests (#56) - ([a9982c6](https://github.com/bircni/get-size2/commit/a9982c609a7dafd93c2859687f2c330af937690c)) - bircni
+
+### Features
+
+- Add portable-atomic feature with GetSize impls for portable_atomic types - ([695ade6](https://github.com/bircni/get-size2/commit/695ade66d1f67b5e9363aaa673db5d6d2ce14646)) - bircni
+
+### Tests
+
+- Register test_orx_concurrent_vec as a test case - ([ccf2051](https://github.com/bircni/get-size2/commit/ccf205111debcc6f423b4c6442626816e0e3e8de)) - bircni
+
+### Ci
+
+- Build and test across a 64-bit and 32-bit target matrix - ([58d7d39](https://github.com/bircni/get-size2/commit/58d7d3991f1382bab17dcc7731944a556144977b)) - bircni
+
 ## [0.10.2](https://github.com/bircni/get-size2/compare/0.10.1..0.10.2) - 2026-07-15
 
 ### Bug Fixes
