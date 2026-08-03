@@ -165,19 +165,42 @@ fn derive_get_size_impl(input: TokenStream) -> syn::Result<TokenStream> {
                         let num_fields = unnamed_fields.unnamed.len();
 
                         let mut field_idents = Vec::with_capacity(num_fields);
-                        for i in 0..num_fields {
-                            field_idents.push(format_ident!("v{i}"));
-                        }
-
                         let mut field_cmds = Vec::with_capacity(num_fields);
 
-                        for (i, _field) in unnamed_fields.unnamed.iter().enumerate() {
+                        for (i, field) in unnamed_fields.unnamed.iter().enumerate() {
+                            // Parse all relevant attributes.
+                            let attr = StructFieldAttribute::from_attributes(&field.attrs)
+                                .map_err(|err| syn::Error::new_spanned(field, err.to_string()))?;
+
+                            // Fields handled by `size` or `ignore` are never read, so they are
+                            // bound to a wildcard to avoid unused variable warnings.
+                            if let Some(size) = attr.size {
+                                field_idents.push(quote! { _ });
+                                field_cmds.push(quote! {
+                                    total += #size;
+                                });
+
+                                continue;
+                            } else if attr.ignore {
+                                field_idents.push(quote! { _ });
+
+                                continue;
+                            }
+
                             let field_ident = format_ident!("v{i}");
 
-                            field_cmds.push(quote! {
+                            if let Some(size_fn) = attr.size_fn {
+                                field_cmds.push(quote! {
+                                    total += #size_fn(#field_ident);
+                                });
+                            } else {
+                                field_cmds.push(quote! {
                                     let (total_add, tracker) = ::get_size2::GetSize::get_heap_size_with_tracker(#field_ident, tracker);
                                     total += total_add;
                                 });
+                            }
+
+                            field_idents.push(quote! { #field_ident });
                         }
 
                         cmds.push(quote! {
@@ -203,17 +226,33 @@ fn derive_get_size_impl(input: TokenStream) -> syn::Result<TokenStream> {
                             let attr = StructFieldAttribute::from_attributes(&field.attrs)
                                 .map_err(|err| syn::Error::new_spanned(field, err.to_string()))?;
 
-                            if attr.ignore {
+                            // Fields handled by `size` or `ignore` are never read, so they stay
+                            // out of the pattern and are covered by its `..` rest pattern.
+                            if let Some(size) = attr.size {
                                 skipped_field = true;
+                                field_cmds.push(quote! {
+                                    total += #size;
+                                });
+
+                                continue;
+                            } else if attr.ignore {
+                                skipped_field = true;
+
                                 continue;
                             }
 
                             field_idents.push(field_ident);
 
-                            field_cmds.push(quote! {
-                                let (total_add, tracker) = ::get_size2::GetSize::get_heap_size_with_tracker(#field_ident, tracker);
-                                total += total_add;
-                            });
+                            if let Some(size_fn) = attr.size_fn {
+                                field_cmds.push(quote! {
+                                    total += #size_fn(#field_ident);
+                                });
+                            } else {
+                                field_cmds.push(quote! {
+                                    let (total_add, tracker) = ::get_size2::GetSize::get_heap_size_with_tracker(#field_ident, tracker);
+                                    total += total_add;
+                                });
+                            }
                         }
 
                         let pattern = if skipped_field {

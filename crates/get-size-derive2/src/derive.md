@@ -80,7 +80,7 @@ If a field's type does not implement [`GetSize`], the `#[get_size(...)]` attribu
 | `#[get_size(size_fn = my_helper)]` | Field | Calls `my_helper(&field)` to determine the heap size |
 | `#[get_size(ignore(A, B))]` | Struct or enum | Drops the [`GetSize`] bound on the listed generic types |
 
-The three field attributes work on named and on tuple struct fields. On enum variants only `ignore`, and only on named fields, is honored.
+The three field attributes work on the fields of structs, of tuple structs and of enum variants alike.
 
 ## Ignoring fields
 

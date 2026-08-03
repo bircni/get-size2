@@ -299,6 +299,79 @@ fn derive_newtype_attributes() {
 }
 
 #[test]
+fn derive_enum_variant_attributes() {
+    // The field attributes have to be honored on enum variants as well, on unnamed and on named
+    // fields alike, instead of being silently discarded.
+    #[derive(GetSize)]
+    enum Unnamed {
+        Ignored(#[get_size(ignore)] String, String),
+        Fixed(#[get_size(size = 1024)] String, String),
+        Helper(#[get_size(size_fn = helper)] String, String),
+    }
+
+    #[derive(GetSize)]
+    enum Named {
+        Ignored {
+            #[get_size(ignore)]
+            first: String,
+            second: String,
+        },
+        Fixed {
+            #[get_size(size = 1024)]
+            first: String,
+            second: String,
+        },
+        Helper {
+            #[get_size(size_fn = helper)]
+            first: String,
+            second: String,
+        },
+    }
+
+    fn helper(_value: &String) -> usize {
+        7
+    }
+
+    assert_eq!(
+        Unnamed::Ignored("aaaa".into(), "bb".into()).get_heap_size(),
+        2
+    );
+    assert_eq!(
+        Unnamed::Fixed("aaaa".into(), "bb".into()).get_heap_size(),
+        1024 + 2
+    );
+    assert_eq!(
+        Unnamed::Helper("aaaa".into(), "bb".into()).get_heap_size(),
+        7 + 2
+    );
+
+    assert_eq!(
+        Named::Ignored {
+            first: "aaaa".into(),
+            second: "bb".into()
+        }
+        .get_heap_size(),
+        2
+    );
+    assert_eq!(
+        Named::Fixed {
+            first: "aaaa".into(),
+            second: "bb".into()
+        }
+        .get_heap_size(),
+        1024 + 2
+    );
+    assert_eq!(
+        Named::Helper {
+            first: "aaaa".into(),
+            second: "bb".into()
+        }
+        .get_heap_size(),
+        7 + 2
+    );
+}
+
+#[test]
 fn default_tracker() {
     // The derive macro cannot know whether the `alloc` feature is active, so it delegates to
     // `get_size2::default_tracker()`, which must still deduplicate shared ownership.
