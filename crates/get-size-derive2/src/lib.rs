@@ -1,4 +1,7 @@
-#![doc = include_str!("./lib.md")]
+//! Derives the `GetSize` trait of [`get-size2`](https://docs.rs/get-size2) for structs and enums.
+//!
+//! This crate is re-exported by `get-size2` and is meant to be used through its `derive` feature.
+//! See [`GetSize`](macro@GetSize) for the attribute reference.
 
 use attribute_derive::{Attribute, FromAttr};
 use proc_macro::TokenStream;
@@ -114,6 +117,7 @@ fn add_trait_bounds(mut generics: syn::Generics, ignored: &Vec<syn::PathSegment>
     generics
 }
 
+#[doc = include_str!("./derive.md")]
 #[proc_macro_derive(GetSize, attributes(get_size))]
 pub fn derive_get_size(input: TokenStream) -> TokenStream {
     match derive_get_size_impl(input) {
