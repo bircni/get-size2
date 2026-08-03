@@ -4,7 +4,7 @@ impl<K, V, S> GetSize for ordermap::OrderMap<K, V, S>
 where
     K: GetSize,
     V: GetSize,
-    S: std::hash::BuildHasher,
+    S: core::hash::BuildHasher,
 {
     fn get_heap_size_with_tracker<Tr: GetSizeTracker>(&self, tracker: Tr) -> (usize, Tr) {
         let (size, tracker) = self

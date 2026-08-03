@@ -68,6 +68,35 @@ jobs:
       - name: Test
         run: cargo test --all --all-features --target ${{ matrix.target }}
 
+  no-std:
+    name: Build (no_std)
+    runs-on: ubuntu-latest
+    needs: [typos, cargo-machete]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      # A bare metal target without `std`, so anything reaching for `std` fails to build.
+      - name: Set up toolchain
+        run: rustup target add thumbv7m-none-eabi
+
+      - name: Install cargo-hack
+        uses: taiki-e/install-action@cargo-hack
+
+      - name: Cache dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: ${{ github.ref_name }}-thumbv7m-none-eabi
+
+      # Builds the crate without any feature and then once per feature, so a newly added feature
+      # cannot skip the no_std gate by being left out of `all-features-no-std`. Excluded are the
+      # features which require `std`, plus the `all-features` combination they are part of.
+      - name: Build every no_std compatible feature
+        run: >
+          cargo hack build -p get-size2 --each-feature --exclude-all-features
+          --exclude-features default,std,dashmap,parking_lot --target thumbv7m-none-eabi
+
   check:
     name: Lint
     runs-on: ubuntu-latest
@@ -86,7 +115,7 @@ jobs:
         run: cargo fmt --all -- --check
 
       - name: Lint code
-        run: cargo clippy -- -D warnings
+        run: cargo clippy --all-targets --all-features -- -D warnings
 
   tarpaulin:
     name: Tarpaulin Coverage
@@ -116,7 +145,7 @@ jobs:
   publish-check:
     name: Publish Check
     runs-on: ubuntu-latest
-    needs: [build, check, tarpaulin]
+    needs: [typos, cargo-machete]
     steps:
       - uses: actions/checkout@v6
       - uses: Swatinem/rust-cache@v2

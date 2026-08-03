@@ -1,3 +1,8 @@
+// The crate itself is `no_std`, so the tests have to import the `alloc` based prelude items
+// explicitly.
+use std::string::String;
+use std::vec;
+
 use std::mem::size_of;
 
 use get_size2::*;

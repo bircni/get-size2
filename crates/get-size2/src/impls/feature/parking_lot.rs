@@ -1,7 +1,7 @@
 use crate::{GetSize, GetSizeTracker};
 
 // parking_lot's Mutex/RwLock are infallible (no poisoning) so these are
-// simpler than the std::sync variants in `impls/sync_impls.rs` — no
+// simpler than the std::sync variants in `impls/std_impls/sync.rs` — no
 // `unwrap_or_else(PoisonError::into_inner)` recovery needed.
 
 impl<T> GetSize for parking_lot::Mutex<T>

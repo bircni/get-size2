@@ -1,7 +1,9 @@
-mod collections;
+// The implementations are grouped by the crate which provides the implemented types, so that a
+// `no_std` build can simply drop the `alloc` and `std` tiers.
+mod core_impls;
 mod feature;
-mod ownership;
-mod primitives;
-mod ranges;
-mod std_types;
-mod sync_impls;
+
+#[cfg(feature = "alloc")]
+mod alloc_impls;
+#[cfg(feature = "std")]
+mod std_impls;

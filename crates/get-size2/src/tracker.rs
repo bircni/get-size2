@@ -1,4 +1,10 @@
+#[cfg(feature = "alloc")]
+use alloc::boxed::Box;
+#[cfg(all(feature = "alloc", not(feature = "std")))]
+use alloc::collections::BTreeSet;
+#[cfg(feature = "std")]
 use std::collections::HashSet;
+#[cfg(feature = "std")]
 use std::sync::{Arc, Mutex, RwLock};
 
 /// A tracker which makes sure that shared ownership objects are only accounted for once.
@@ -16,12 +22,16 @@ impl<T: GetSizeTracker> GetSizeTracker for &mut T {
     }
 }
 
+#[cfg(feature = "alloc")]
+#[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
 impl<T: GetSizeTracker> GetSizeTracker for Box<T> {
     fn track<A>(&mut self, addr: *const A) -> bool {
         GetSizeTracker::track(&mut **self, addr)
     }
 }
 
+#[cfg(feature = "std")]
+#[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 impl<T: GetSizeTracker> GetSizeTracker for Mutex<T> {
     fn track<A>(&mut self, addr: *const A) -> bool {
         let tracker = self
@@ -32,6 +42,8 @@ impl<T: GetSizeTracker> GetSizeTracker for Mutex<T> {
     }
 }
 
+#[cfg(feature = "std")]
+#[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 impl<T: GetSizeTracker> GetSizeTracker for RwLock<T> {
     fn track<A>(&mut self, addr: *const A) -> bool {
         let mut tracker = self
@@ -42,6 +54,8 @@ impl<T: GetSizeTracker> GetSizeTracker for RwLock<T> {
     }
 }
 
+#[cfg(feature = "std")]
+#[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 impl<T: GetSizeTracker> GetSizeTracker for Arc<Mutex<T>> {
     fn track<A>(&mut self, addr: *const A) -> bool {
         let mut tracker = self
@@ -52,6 +66,8 @@ impl<T: GetSizeTracker> GetSizeTracker for Arc<Mutex<T>> {
     }
 }
 
+#[cfg(feature = "std")]
+#[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 impl<T: GetSizeTracker> GetSizeTracker for Arc<RwLock<T>> {
     fn track<A>(&mut self, addr: *const A) -> bool {
         let mut tracker = self
@@ -62,12 +78,22 @@ impl<T: GetSizeTracker> GetSizeTracker for Arc<RwLock<T>> {
     }
 }
 
+// The set of addresses already seen by a `StandardTracker`. A `HashSet` needs the random state
+// provided by `std`, so `no_std` builds fall back to the `alloc` only `BTreeSet`.
+#[cfg(feature = "std")]
+type SeenAddresses = HashSet<usize>;
+#[cfg(all(feature = "alloc", not(feature = "std")))]
+type SeenAddresses = BTreeSet<usize>;
+
 /// A simple standard tracker which can be used to track shared ownership references.
+#[cfg(feature = "alloc")]
+#[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
 #[derive(Debug, Default)]
 pub struct StandardTracker {
-    inner: HashSet<usize>,
+    inner: SeenAddresses,
 }
 
+#[cfg(feature = "alloc")]
 impl StandardTracker {
     #[must_use]
     pub fn new() -> Self {
@@ -79,6 +105,7 @@ impl StandardTracker {
     }
 }
 
+#[cfg(feature = "alloc")]
 impl GetSizeTracker for StandardTracker {
     fn track<A>(&mut self, addr: *const A) -> bool {
         self.inner.insert(addr.addr())

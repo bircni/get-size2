@@ -13,12 +13,15 @@ impl GetSize for roaring::RoaringBitmap {
             s.n_bytes_array_containers + s.n_bytes_bitset_containers + s.n_bytes_run_containers;
         // u64 → usize: bounded ~512 MiB so fits everywhere; saturate
         // defensively in release, surface the invariant breach in debug.
-        debug_assert!(bytes <= usize::MAX as u64);
+        debug_assert!(
+            usize::try_from(bytes).is_ok(),
+            "container byte total {bytes} exceeds usize::MAX"
+        );
         (usize::try_from(bytes).unwrap_or(usize::MAX), tracker)
     }
 }
 
-// Mirrors the `BTreeMap<K, V>` impl in `collections.rs` — per-entry
+// Mirrors the `BTreeMap<K, V>` impl in `alloc_impls/collections.rs` — per-entry
 // stack + heap of both K and V, no node-padding accounting.
 
 impl GetSize for roaring::RoaringTreemap {

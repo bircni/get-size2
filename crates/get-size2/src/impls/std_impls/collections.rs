@@ -1,10 +1,12 @@
+use std::collections::{HashMap, HashSet};
+use std::hash::BuildHasher;
+
 use crate::{GetSize, GetSizeTracker};
 
-impl<K, V, S> GetSize for indexmap::IndexMap<K, V, S>
+impl<K, V, S: BuildHasher> GetSize for HashMap<K, V, S>
 where
     K: GetSize,
     V: GetSize,
-    S: core::hash::BuildHasher,
 {
     fn get_heap_size_with_tracker<Tr: GetSizeTracker>(&self, tracker: Tr) -> (usize, Tr) {
         let (size, tracker) = self
@@ -20,13 +22,13 @@ where
     }
 }
 
-impl<T, S> GetSize for indexmap::IndexSet<T, S>
+impl<T, S: BuildHasher> GetSize for HashSet<T, S>
 where
     T: GetSize,
 {
     fn get_heap_size_with_tracker<Tr: GetSizeTracker>(&self, tracker: Tr) -> (usize, Tr) {
-        let (size, tracker) = self.iter().fold((0, tracker), |(size, tracker), element| {
-            let (elem_size, tracker) = T::get_heap_size_with_tracker(element, tracker);
+        let (size, tracker) = self.iter().fold((0, tracker), |(size, tracker), elem| {
+            let (elem_size, tracker) = T::get_heap_size_with_tracker(elem, tracker);
             (size + elem_size, tracker)
         });
 

@@ -5,7 +5,7 @@ use crate::GetSize;
 // no `std::sync::atomic::AtomicU64`/`AtomicI64` (see issue #54). These impls let
 // crates that reach for `portable_atomic` on such targets still measure size.
 //
-// Like their std counterparts in `impls/primitives.rs`, these are stack-only
+// Like their std counterparts in `impls/core_impls/primitives.rs`, these are stack-only
 // types, so the default `get_heap_size` (returning 0) is correct.
 
 impl GetSize for portable_atomic::AtomicBool {}
