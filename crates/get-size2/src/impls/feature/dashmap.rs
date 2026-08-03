@@ -1,4 +1,4 @@
-use std::hash::{BuildHasher, Hash};
+use core::hash::{BuildHasher, Hash};
 
 use crate::{GetSize, GetSizeTracker};
 

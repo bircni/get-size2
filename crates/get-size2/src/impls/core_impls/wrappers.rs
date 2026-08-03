@@ -1,31 +1,30 @@
-use std::cell::RefCell;
-use std::sync::{Mutex, OnceLock, RwLock};
+use core::cell::RefCell;
 
 use crate::{GetSize, GetSizeTracker};
 
-impl<T> GetSize for Mutex<T>
+impl<T> GetSize for Option<T>
 where
     T: GetSize,
 {
     fn get_heap_size_with_tracker<Tr: GetSizeTracker>(&self, tracker: Tr) -> (usize, Tr) {
-        // We assume that a `Mutex` holds its data on the stack.
-        let guard = self
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
-        T::get_heap_size_with_tracker(&*guard, tracker)
+        match self {
+            None => (0, tracker),
+            Some(value) => T::get_heap_size_with_tracker(value, tracker),
+        }
     }
 }
 
-impl<T> GetSize for RwLock<T>
+impl<T, E> GetSize for Result<T, E>
 where
     T: GetSize,
+    E: GetSize,
 {
     fn get_heap_size_with_tracker<Tr: GetSizeTracker>(&self, tracker: Tr) -> (usize, Tr) {
-        // We assume that a `RwLock` holds its data on the stack.
-        let guard = self
-            .read()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
-        T::get_heap_size_with_tracker(&*guard, tracker)
+        // The result's stack size already accounts for the values stack size.
+        match self {
+            Ok(value) => T::get_heap_size_with_tracker(value, tracker),
+            Err(err) => E::get_heap_size_with_tracker(err, tracker),
+        }
     }
 }
 
@@ -43,19 +42,6 @@ where
                 // Return 0 for heap size to avoid panic, though this is a rare edge case.
                 (0, tracker)
             }
-        }
-    }
-}
-
-impl<T> GetSize for OnceLock<T>
-where
-    T: GetSize,
-{
-    fn get_heap_size_with_tracker<Tr: GetSizeTracker>(&self, tracker: Tr) -> (usize, Tr) {
-        // We assume that a `OnceLock` holds its data on the stack.
-        match self.get() {
-            None => (0, tracker),
-            Some(value) => T::get_heap_size_with_tracker(value, tracker),
         }
     }
 }

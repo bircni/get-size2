@@ -58,25 +58,54 @@ get-size2 = { path = ".", features = [
 ] }
 
 [features]
-default = []
+default = ["std"]
 derive = ["get-size-derive2"]
+
+# Implements `GetSize` for types of the standard library. Disable for `no_std`.
+std = ["alloc"]
+# Implements `GetSize` for types of the `alloc` crate (`Vec`, `String`, `Box`, ...).
+alloc = []
 
 bytes = ["dep:bytes"]
 chrono = ["dep:chrono"]
 chrono-tz = ["dep:chrono-tz"]
 compact-str = ["dep:compact_str"]
-dashmap = ["dep:dashmap"]
+# `dashmap` itself requires `std`.
+dashmap = ["dep:dashmap", "std"]
 half = ["dep:half"]
 hashbrown = ["dep:hashbrown"]
 indexmap = ["dep:indexmap"]
 ordermap = ["dep:ordermap"]
 orx-concurrent-vec = ["dep:orx-concurrent-vec"]
-parking_lot = ["dep:parking_lot"]
+# `parking_lot` itself requires `std`.
+parking_lot = ["dep:parking_lot", "std"]
 portable-atomic = ["dep:portable-atomic"]
 roaring = ["dep:roaring"]
 smallvec = ["dep:smallvec"]
 thin-vec = ["dep:thin-vec"]
 url = ["dep:url"]
+
+# Feature pack enabling everything which works without `std`, which is every feature except
+# `dashmap` and `parking_lot`. Keeps `no_std` builds, and the CI job guarding them, in sync with
+# the feature list above.
+all-features-no-std = [
+    "alloc",
+    "derive",
+    "bytes",
+    "chrono",
+    "chrono-tz",
+    "compact-str",
+    "half",
+    "hashbrown",
+    "indexmap",
+    "ordermap",
+    "orx-concurrent-vec",
+    "portable-atomic",
+    "roaring",
+    "smallvec",
+    "thin-vec",
+    "url",
+]
 
 [package.metadata.docs.rs]
 all-features = true

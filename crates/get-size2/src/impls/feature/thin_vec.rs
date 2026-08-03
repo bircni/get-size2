@@ -15,7 +15,7 @@ where
             (size + elem_size, tracker)
         });
 
-        let metadata_size = std::mem::size_of::<usize>() * 2; // Capacity and length.
+        let metadata_size = core::mem::size_of::<usize>() * 2; // Capacity and length.
         let allocation_size = self.capacity() * T::get_stack_size();
         (size + metadata_size + allocation_size, tracker)
     }
