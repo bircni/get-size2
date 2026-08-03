@@ -4,310 +4,48 @@
 [![docs.rs](https://img.shields.io/docsrs/get-size-derive2)](https://docs.rs/get-size-derive2)
 [![MIT licensed](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/bircni/get-size2/blob/main/crates/get-size-derive2/LICENSE)
 
-Derives [`GetSize`] for structs and enums.
+Derives the `GetSize` trait of [get-size2](https://crates.io/crates/get-size2) for structs and enums.
 
-The derive macro will provide a custom implementation of the [`get_heap_size`] method, which will simply call [`get_heap_size`] on all contained values and add the values up. This implies that by default all values contained in the struct or enum must implement the [`GetSize`] trait themselves.
+## Usage
 
-Note that the derive macro _does not support unions_. You have to manually implement it for them.
+This crate is re-exported by `get-size2`, so depend on that with the `derive` feature instead of adding it directly:
 
-## Examples
-
-Deriving [`GetSize`] for a struct:
+```toml
+[dependencies]
+get-size2 = { version = "^0.10", features = ["derive"] }
+```
 
 ```rust
 use get_size2::GetSize;
 
 #[derive(GetSize)]
-pub struct OwnStruct {
-    value1: String,
-    value2: u64,
+struct Data {
+    name: String,
+    id: u64,
 }
 
-fn main() {
-    let test = OwnStruct {
-        value1: "Hello".into(),
-        value2: 123,
-    };
-
-    assert_eq!(test.get_heap_size(), 5);
-}
+assert_eq!(Data { name: "Hello".into(), id: 1 }.get_heap_size(), 5);
 ```
 
-Deriving [`GetSize`] for an enum:
+The generated implementation sums up the heap size of every field, so every field type has to implement `GetSize` as well. Shared ownership is deduplicated, since the generated implementation threads a tracker through all fields. Unions are not supported.
 
-```rust
-use get_size2::GetSize;
+## Attributes
 
-#[derive(GetSize)]
-pub enum TestEnum {
-    Variant1(u8, u16, u32),
-    Variant2(String),
-    Variant3,
-    Variant4{x: String, y: String},
-}
+For fields whose type does not implement `GetSize`, the `#[get_size(...)]` attribute offers three ways out, plus a struct or enum level escape hatch for generics:
 
-#[derive(GetSize)]
-pub enum TestEnumNumber {
-    Zero = 0,
-    One = 1,
-    Two = 2,
-}
+| Attribute | Position | Effect |
+| --------- | -------- | ------ |
+| `#[get_size(ignore)]` | Field | Skips the field, contributing `0` |
+| `#[get_size(size = 1024)]` | Field | Accounts the field with a fixed number of bytes |
+| `#[get_size(size_fn = my_helper)]` | Field | Calls `my_helper(&field)` to determine the heap size |
+| `#[get_size(ignore(A, B))]` | Struct or enum | Drops the `GetSize` bound on the listed generic types |
 
-fn main() {
-    let test = TestEnum::Variant1(1, 2, 3);
-    assert_eq!(test.get_heap_size(), 0);
+## Documentation
 
-    let test = TestEnum::Variant2("Hello".into());
-    assert_eq!(test.get_heap_size(), 5);
-
-    let test = TestEnum::Variant3;
-    assert_eq!(test.get_heap_size(), 0);
-
-    let test = TestEnum::Variant4{x: "Hello".into(), y: "world".into()};
-    assert_eq!(test.get_heap_size(), 5 + 5);
-
-    let test = TestEnumNumber::One;
-    assert_eq!(test.get_heap_size(), 0);
-}
-```
-
-The derive macro does also work with generics. The generated trait implementation will by default require all generic types to implement [`GetSize`] themselves, but this [can be changed](#ignoring-certain-generic-types).
-
-```rust
-use get_size2::GetSize;
-
-#[derive(GetSize)]
-struct TestStructGenerics<A, B> {
-    value1: A,
-    value2: B,
-}
-
-#[derive(GetSize)]
-enum TestEnumGenerics<A, B> {
-  Variant1(A),
-  Variant2(B),
-}
-
-fn main() {
-    let test: TestStructGenerics<String, u64> = TestStructGenerics {
-        value1: "Hello".into(),
-        value2: 123,
-    };
-
-    assert_eq!(test.get_heap_size(), 5);
-
-    let test = String::from("Hello");
-    let test: TestEnumGenerics<String, u64> = TestEnumGenerics::Variant1(test);
-
-    assert_eq!(test.get_heap_size(), 5);
-
-    let test: TestEnumGenerics<String, u64> = TestEnumGenerics::Variant2(100);
-
-    assert_eq!(test.get_heap_size(), 0);
-}
-```
-
-### Dealing with external types which do not implement GetSize
-
-Deriving [`GetSize`] is straight forward if all the types contained in your data structure implement [`GetSize`] themselves, but this might not always be the case. For that reason the derive macro offers some helpers to assist you in that case.
-
-Note that the helper attributes are supported for structs (named and tuple; `size_fn` requires named fields). For enums, only `ignore` is supported on named fields.
-
-#### Ignoring certain values
-
-You can tell the derive macro to ignore certain struct fields by adding the `ignore` attribute to them. The generated implementation of [`get_heap_size`] will then simple skip this field.
-
-##### Example
-
-The idiomatic use case for this helper is if you use shared ownership and do not want your data to be counted twice.
-
-```rust
-use std::sync::Arc;
-use get_size2::GetSize;
-
-#[derive(GetSize)]
-struct PrimaryStore {
-  id: u64,
-  shared_data: Arc<Vec<u8>>,
-}
-
-#[derive(GetSize)]
-struct SecondaryStore {
-  id: u64,
-  #[get_size(ignore)]
-  shared_data: Arc<Vec<u8>>,
-}
-
-fn main() {
-  let shared_data = Arc::new(Vec::with_capacity(1024));
-
-  let primary_data = PrimaryStore {
-    id: 1,
-    shared_data: Arc::clone(&shared_data),
-  };
-
-  let secondary_data = SecondaryStore {
-    id: 2,
-    shared_data,
-  };
-
-  // Note that Arc does also store the Vec's stack data on the heap.
-  assert_eq!(primary_data.get_heap_size(), Vec::<u8>::get_stack_size() + 1024);
-  assert_eq!(secondary_data.get_heap_size(), 0);
-}
-```
-
-##### Example
-
-But you may also use this as a band aid, if a certain struct fields type does not implement [`GetSize`].
-
-Be aware though that this will result in an implementation which will return incorrect results, unless the heap size of that type is indeed always zero and can thus be ignored. It is therefor advisable to use one of the next two helper options instead.
-
-```rust
-use get_size2::GetSize;
-
-// Does not implement GetSize!
-struct TestStructNoGetSize {
-    value: String,
-}
-
-// Implements GetSize, even though one field's type does not implement it.
-#[derive(GetSize)]
-struct TestStruct {
-  name: String,
-  #[get_size(ignore)]
-  ignored_value: TestStructNoGetSize,
-}
-
-fn main() {
-  let ignored_value = TestStructNoGetSize {
-    value: "Hello world!".into(),
-  };
-
-  let test = TestStruct {
-    name: "Adam".into(),
-    ignored_value,
-  };
-
-  // Note that the result is lower then it should be.
-  assert_eq!(test.get_heap_size(), 4);
-}
-```
-
-#### Returning a fixed value
-
-In same cases you may be dealing with external types which allocate a fixed amount of bytes at the heap. In this case you may use the `size` attribute to always account the given field with a fixed value.
-
-```rust
-use get_size2::GetSize;
-
-#[derive(GetSize)]
-struct TestStruct {
-  id: u64,
-  #[get_size(size = 1024)]
-  buffer: Buffer1024, // Always allocates exactly 1KB at the heap.
-}
-
-fn main() {
-  let test = TestStruct {
-    id: 1,
-    buffer: Buffer1024::new(),
-  };
-
-  assert_eq!(test.get_heap_size(), 1024);
-}
-```
-
-#### Using a helper function
-
-In same cases you may be dealing with an external data structure for which you know how to calculate its heap size using its public methods. In that case you may either use the newtype pattern to implement [`GetSize`] for it directly, or you can use the `size_fn` attribute, which will call the given function in order to calculate the fields heap size.
-
-The latter is especially useful if you can make use of a certain trait to calculate the heap size for multiple types.
-
-Note that unlike in other crates, the name of the function to be called is **not** encapsulated by double-quotes ("), but rather given directly.
-
-```rust
-use get_size2::GetSize;
-
-#[derive(GetSize)]
-struct TestStruct {
-  id: u64,
-  #[get_size(size_fn = vec_alike_helper)]
-  buffer: ExternalVecAlike<u8>,
-}
-
-// NOTE: We assume that slice.len()==slice.capacity()
-fn vec_alike_helper<V, T>(slice: &V) -> usize
-where
-  V: AsRef<[T]>,
-{
-  std::mem::size_of::<T>() * slice.as_ref().len()
-}
-
-fn main() {
-  let buffer = vec![0u8; 512];
-  let buffer: ExternalVecAlike<u8> = buffer.into();
-
-  let test = TestStruct {
-    id: 1,
-    buffer,
-  };
-
-  assert_eq!(test.get_heap_size(), 512);
-}
-```
-
-#### Ignoring certain generic types
-
-If your struct uses generics, but the fields at which they are stored are ignored or get handled by helpers because the generic does not implement [`GetSize`], you will have to mark these generics with a special struct level `ignore` attribute. Otherwise the derived [`GetSize`] implementation would still require these generics to implement [`GetSize`], even though there is no need for it.
-
-```rust
-use get_size2::GetSize;
-
-#[derive(GetSize)]
-#[get_size(ignore(B, C, D))]
-struct TestStructHelpers<A, B, C, D> {
-    value1: A,
-    #[get_size(size = 100)]
-    value2: B,
-    #[get_size(size_fn = get_size_helper)]
-    value3: C,
-    #[get_size(ignore)]
-    value4: D,
-}
-
-// Does not implement GetSize
-struct NoGS {}
-
-fn get_size_helper<C>(_value: &C) -> usize {
-    50
-}
-
-fn main() {
-    let test: TestStructHelpers<String, NoGS, NoGS, u64> = TestStructHelpers {
-        value1: "Hello".into(),
-        value2: NoGS {},
-        value3: NoGS {},
-        value4: 123,
-    };
-
-    assert_eq!(test.get_heap_size(), 5 + 100 + 50);
-}
-```
-
-## Panics
-
-The derive macro will panic if used on unions since these are currently not supported.
-
-Note that there will be a compilation error if one of the (not ignored) values encountered does not implement the [`GetSize`] trait.
+See [docs.rs](https://docs.rs/get-size-derive2) for the full attribute reference with examples, and [docs.rs/get-size2](https://docs.rs/get-size2) for the trait itself.
 
 ## License
 
 This library is licensed under the [MIT license](http://opensource.org/licenses/MIT).
 
-### Contribution
-
-Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in this library by you, shall be licensed as MIT, without any additional terms or conditions.
-
-[`GetSize`]: https://docs.rs/get-size2/latest/get_size2/trait.GetSize.html
-[`get_heap_size`]: https://docs.rs/get-size2/latest/get_size2/trait.GetSize.html#method.get_heap_size
+Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in this library by you shall be licensed as MIT, without any additional terms or conditions.

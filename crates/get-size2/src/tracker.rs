@@ -23,7 +23,6 @@ impl<T: GetSizeTracker> GetSizeTracker for &mut T {
 }
 
 #[cfg(feature = "alloc")]
-#[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
 impl<T: GetSizeTracker> GetSizeTracker for Box<T> {
     fn track<A>(&mut self, addr: *const A) -> bool {
         GetSizeTracker::track(&mut **self, addr)
@@ -31,7 +30,6 @@ impl<T: GetSizeTracker> GetSizeTracker for Box<T> {
 }
 
 #[cfg(feature = "std")]
-#[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 impl<T: GetSizeTracker> GetSizeTracker for Mutex<T> {
     fn track<A>(&mut self, addr: *const A) -> bool {
         let tracker = self
@@ -43,7 +41,6 @@ impl<T: GetSizeTracker> GetSizeTracker for Mutex<T> {
 }
 
 #[cfg(feature = "std")]
-#[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 impl<T: GetSizeTracker> GetSizeTracker for RwLock<T> {
     fn track<A>(&mut self, addr: *const A) -> bool {
         let mut tracker = self
@@ -55,7 +52,6 @@ impl<T: GetSizeTracker> GetSizeTracker for RwLock<T> {
 }
 
 #[cfg(feature = "std")]
-#[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 impl<T: GetSizeTracker> GetSizeTracker for Arc<Mutex<T>> {
     fn track<A>(&mut self, addr: *const A) -> bool {
         let mut tracker = self
@@ -67,7 +63,6 @@ impl<T: GetSizeTracker> GetSizeTracker for Arc<Mutex<T>> {
 }
 
 #[cfg(feature = "std")]
-#[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 impl<T: GetSizeTracker> GetSizeTracker for Arc<RwLock<T>> {
     fn track<A>(&mut self, addr: *const A) -> bool {
         let mut tracker = self
@@ -87,7 +82,6 @@ type SeenAddresses = BTreeSet<usize>;
 
 /// A simple standard tracker which can be used to track shared ownership references.
 #[cfg(feature = "alloc")]
-#[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
 #[derive(Debug, Default)]
 pub struct StandardTracker {
     inner: SeenAddresses,
