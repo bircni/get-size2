@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
+## [0.11.0](https://github.com/bircni/get-size2/compare/0.10.3..0.11.0) - 2026-08-03
+
+### Documentation
+
+- Overhaul the crate and derive documentation - ([f03e05c](https://github.com/bircni/get-size2/commit/f03e05ca8658cc69a964ff6ff3f8e799e27c6965)) - bircni
+
+### Features
+
+-  [**breaking**] Add `no_std` support (#57) - ([dd08267](https://github.com/bircni/get-size2/commit/dd082675332ffb872090089f29312db3cb29ad6f)) - bircni
+- Honor field attributes on enum variant fields - ([19c495e](https://github.com/bircni/get-size2/commit/19c495e3f30830dfb15f4823fe180545ec0c396d)) - bircni
+-  [**breaking**] Implement `GetSize` for references to unsized targets - ([135967f](https://github.com/bircni/get-size2/commit/135967fef6650fc18d2939cc02739ce57d031457)) - bircni
+
 ## [0.10.3](https://github.com/bircni/get-size2/compare/0.10.2..0.10.3) - 2026-07-20
 
 ### Bug Fixes
