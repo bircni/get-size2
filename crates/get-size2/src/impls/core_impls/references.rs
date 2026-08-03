@@ -1,16 +1,10 @@
-use core::ffi::CStr;
-
 use crate::GetSize;
 
 // A reference only borrows its data, which belongs to whoever owns it, so all of these report a
-// heap size of zero.
+// heap size of zero. The `?Sized` bound covers unsized targets as well, e.g. `&[T]`, `&str` and
+// `&dyn Trait`.
 
-impl<T> GetSize for &[T] where T: GetSize {}
-
-impl<T> GetSize for &T {}
-impl<T> GetSize for &mut T {}
-impl<T> GetSize for *const T {}
-impl<T> GetSize for *mut T {}
-
-impl GetSize for &str {}
-impl GetSize for &CStr {}
+impl<T: ?Sized> GetSize for &T {}
+impl<T: ?Sized> GetSize for &mut T {}
+impl<T: ?Sized> GetSize for *const T {}
+impl<T: ?Sized> GetSize for *mut T {}

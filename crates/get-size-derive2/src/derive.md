@@ -69,6 +69,49 @@ let pair: Pair<String, u64> = Pair { first: "Hello".into(), second: 123 };
 assert_eq!(pair.get_heap_size(), 5);
 ```
 
+# Borrowed fields
+
+Fields holding a reference or a raw pointer need no attribute, but they always contribute `0`, no matter how much the target allocates. Borrowed bytes belong to whoever owns them, so counting them here would report them twice. This holds for every reference, including those to unsized targets such as `&str`, `&[T]` and `&dyn Trait`:
+
+```rust
+use get_size2::GetSize;
+
+#[derive(GetSize)]
+struct Borrowing<'a> {
+    id: u64,
+    name: &'a str,
+    values: &'a [String],
+}
+
+let name = String::from("Hello");
+let values = vec![String::from("world")];
+
+let borrowing = Borrowing { id: 1, name: &name, values: &values };
+
+// The 5 and 5 bytes belong to `name` and `values`, so this struct owns nothing.
+assert_eq!(borrowing.get_heap_size(), 0);
+```
+
+Use `size_fn` for the rare case of a struct which is effectively the owner of the data it points at, for example after leaking an allocation or when the target lives in an arena:
+
+```rust
+use get_size2::GetSize;
+
+#[derive(GetSize)]
+struct Owning {
+    #[get_size(size_fn = str_len)]
+    leaked: &'static str,
+}
+
+// The generated code passes a reference to the field, hence the double reference.
+fn str_len(value: &&'static str) -> usize {
+    value.len()
+}
+
+let owning = Owning { leaked: String::from("Hello").leak() };
+assert_eq!(owning.get_heap_size(), 5);
+```
+
 # Attributes
 
 If a field's type does not implement [`GetSize`], the `#[get_size(...)]` attribute offers three ways out, plus a struct or enum level escape hatch for generics:

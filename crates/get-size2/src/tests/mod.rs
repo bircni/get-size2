@@ -768,3 +768,27 @@ fn covers_tracker_trait_forwarders() {
     assert!(no_tracker.answer());
     assert!(no_tracker.track(addr));
 }
+
+#[test]
+fn references_to_unsized_targets() {
+    // References borrow their data, so they never report any heap size, no matter whether the
+    // target is sized or not.
+    let slice: &[String] = &[String::from("a"), String::from("b")];
+    assert_eq!(slice.get_heap_size(), 0);
+    assert_eq!(slice.get_size(), size_of::<&[String]>());
+
+    let text: &str = "hello";
+    assert_eq!(text.get_heap_size(), 0);
+    assert_eq!(text.get_size(), size_of::<&str>());
+
+    let mut owned = String::from("hello");
+    let text_mut: &mut str = owned.as_mut_str();
+    assert_eq!(text_mut.get_heap_size(), 0);
+
+    let trait_object: &dyn core::fmt::Debug = &42u64;
+    assert_eq!(trait_object.get_heap_size(), 0);
+    assert_eq!(trait_object.get_size(), size_of::<&dyn core::fmt::Debug>());
+
+    let raw: *const [u8] = &raw const b"raw"[..];
+    assert_eq!(raw.get_heap_size(), 0);
+}

@@ -1,6 +1,6 @@
-use std::ffi::{OsStr, OsString};
+use std::ffi::OsString;
 use std::io::{BufReader, BufWriter, Write};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::time::{Instant, SystemTime};
 
 use crate::{GetSize, GetSizeTracker};
@@ -16,10 +16,6 @@ impl GetSize for PathBuf {
         (self.capacity(), tracker)
     }
 }
-
-// Borrowed data belongs to whoever owns it, so these report a heap size of zero.
-impl GetSize for &OsStr {}
-impl GetSize for &Path {}
 
 impl GetSize for std::fs::DirBuilder {}
 impl GetSize for std::fs::DirEntry {}
