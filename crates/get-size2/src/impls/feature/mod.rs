@@ -1,5 +1,7 @@
 #![allow(clippy::allow_attributes, reason = "needed if features are enabled")]
 
+#[cfg(feature = "arcstr")]
+mod arcstr;
 #[cfg(feature = "bytes")]
 mod bytes;
 #[cfg(feature = "chrono")]
@@ -32,3 +34,5 @@ mod smallvec;
 mod thin_vec;
 #[cfg(feature = "url")]
 mod url;
+#[cfg(feature = "uuid")]
+mod uuid;

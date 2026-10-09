@@ -37,7 +37,7 @@ assert_eq!(data.get_size(), Data::get_stack_size() + 5);
 | [`get-size2`](crates/get-size2) | The `GetSize` trait, its implementations and the trackers | [docs.rs](https://docs.rs/get-size2) |
 | [`get-size-derive2`](crates/get-size-derive2) | The `#[derive(GetSize)]` macro, re-exported by `get-size2` | [docs.rs](https://docs.rs/get-size-derive2) |
 
-The crate is `no_std` compatible and ships optional implementations for 16 third party crates, see the [get-size2 README](crates/get-size2#features).
+The crate is `no_std` compatible and ships optional implementations for 18 third party crates, see the [get-size2 README](crates/get-size2#features).
 
 ## Contributing
 

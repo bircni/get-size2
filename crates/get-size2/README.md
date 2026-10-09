@@ -49,7 +49,7 @@ get-size2 = { version = "^0.10", default-features = false, features = ["alloc", 
 | `derive` | The `#[derive(GetSize)]` macro |
 | `all-features-no-std` | Every feature which works without `std` |
 
-Implementations for third party types are available behind the `bytes`, `chrono`, `chrono-tz`, `compact-str`, `dashmap`, `half`, `hashbrown`, `indexmap`, `ordermap`, `orx-concurrent-vec`, `parking_lot`, `portable-atomic`, `roaring`, `smallvec`, `thin-vec` and `url` features. `dashmap` and `parking_lot` require `std`.
+Implementations for third party types are available behind the `arcstr`, `bytes`, `chrono`, `chrono-tz`, `compact-str`, `dashmap`, `half`, `hashbrown`, `indexmap`, `ordermap`, `orx-concurrent-vec`, `parking_lot`, `portable-atomic`, `roaring`, `smallvec`, `thin-vec`, `url` and `uuid` features. `dashmap` and `parking_lot` require `std`. `arcstr` enables `alloc` and supports both `ArcStr` and `Substr`.
 
 ## Documentation
 

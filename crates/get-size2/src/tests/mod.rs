@@ -727,6 +727,10 @@ fn covers_sync_impls_and_tracker_paths() {
 }
 
 #[test]
+#[expect(
+    clippy::mut_mut,
+    reason = "exercises the `&mut T` forwarder impl, which a reborrow would bypass"
+)]
 fn covers_tracker_trait_forwarders() {
     let value = 123_u64;
     let addr = &raw const value;
