@@ -218,7 +218,7 @@ Each of these features implements [`GetSize`] for the types of the respective cr
 
 Features marked as needing `std` enable it implicitly. `all-features-no-std` is a convenience pack activating everything which works without `std`, that is every feature except `dashmap` and `parking_lot`.
 
-The `arcstr` feature enables `alloc` so shared strings can be deduplicated by the default tracker. Static `ArcStr` literals have no heap size. A `Substr` keeps the entire parent string alive, so the parent's full heap size is counted, with shared parents tracked once. `Uuid` is stored entirely on the stack and has no heap size.
+The `arcstr` feature enables `alloc` so shared strings can be deduplicated by the default tracker. The heap size includes the shared allocation header. The heap size includes the shared allocation header. Static `ArcStr` literals have no heap size. A `Substr` keeps the entire parent string alive, so the parent's full heap size is counted, with shared parents tracked once. `Uuid` is stored entirely on the stack and has no heap size.
 
 # Accuracy
 
