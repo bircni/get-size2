@@ -197,6 +197,7 @@ Each of these features implements [`GetSize`] for the types of the respective cr
 
 | Feature | Types | Needs `std` |
 | ------- | ----- | ----------- |
+| `arcstr` | `ArcStr`, `Substr` | |
 | `bytes` | `Bytes`, `BytesMut` | |
 | `chrono` | `NaiveDate`, `NaiveTime`, `NaiveDateTime`, `DateTime`, `TimeDelta`, ... | |
 | `chrono-tz` | `TzOffset` | |
@@ -213,8 +214,11 @@ Each of these features implements [`GetSize`] for the types of the respective cr
 | `smallvec` | `SmallVec` | |
 | `thin-vec` | `ThinVec` | |
 | `url` | `Url` | |
+| `uuid` | `Uuid` | |
 
 Features marked as needing `std` enable it implicitly. `all-features-no-std` is a convenience pack activating everything which works without `std`, that is every feature except `dashmap` and `parking_lot`.
+
+The `arcstr` feature enables `alloc` so shared strings can be deduplicated by the default tracker. Static `ArcStr` literals have no heap size. A `Substr` keeps the entire parent string alive, so the parent's full heap size is counted, with shared parents tracked once. `Uuid` is stored entirely on the stack and has no heap size.
 
 # Accuracy
 

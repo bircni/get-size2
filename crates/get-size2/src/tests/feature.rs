@@ -8,6 +8,70 @@ use std::mem::size_of;
 use get_size2::*;
 
 #[test]
+fn arcstr() {
+    let value = arcstr::ArcStr::from("Hello, world");
+    assert_eq!(value.get_heap_size(), "Hello, world".len());
+    assert_eq!(value.get_size(), size_of::<arcstr::ArcStr>() + value.len());
+}
+
+#[test]
+fn arcstr_shared() {
+    const TEXT: &str = "Hello world";
+    let value = arcstr::ArcStr::from(TEXT);
+    let shared = (arcstr::ArcStr::clone(&value), arcstr::ArcStr::clone(&value));
+    assert_eq!(shared.get_heap_size(), TEXT.len() * 2);
+    let (size, tracker) = shared.get_heap_size_with_tracker(StandardTracker::new());
+    assert_eq!(size, TEXT.len());
+
+    let (size, tracker) = value.get_heap_size_with_tracker(tracker);
+    assert_eq!(size, 0);
+    let separate = arcstr::ArcStr::from(TEXT);
+    let (size, _) = separate.get_heap_size_with_tracker(tracker);
+    assert_eq!(size, TEXT.len());
+
+    let (size, _) = value.get_heap_size_with_tracker(NoTracker::new(false));
+    assert_eq!(size, 0);
+}
+
+#[test]
+fn arcstr_static() {
+    for value in [
+        arcstr::ArcStr::new(),
+        arcstr::ArcStr::default(),
+        arcstr::ArcStr::from(""),
+        arcstr::literal!("Hello world"),
+    ] {
+        assert_eq!(value.get_heap_size(), 0);
+        assert_eq!(value.get_size(), size_of::<arcstr::ArcStr>());
+        assert_eq!(arcstr::ArcStr::clone(&value).get_heap_size(), 0);
+    }
+}
+
+#[test]
+fn arcstr_substr() {
+    let parent = arcstr::ArcStr::from("Hello world");
+    let first = parent.substr(..5);
+    let second = parent.substr(6..);
+    assert_eq!(first.get_heap_size(), parent.len());
+    assert_eq!(first.get_size(), size_of::<arcstr::Substr>() + parent.len());
+    assert_eq!(second.get_heap_size(), parent.len());
+
+    let (size, tracker) = (first, second).get_heap_size_with_tracker(StandardTracker::new());
+    assert_eq!(size, parent.len());
+    let (size, _) = parent.get_heap_size_with_tracker(tracker);
+    assert_eq!(size, 0);
+}
+
+#[test]
+fn arcstr_substr_static() {
+    assert_eq!(arcstr::Substr::new().get_heap_size(), 0);
+    assert_eq!(
+        arcstr::literal!("Hello world").substr(6..).get_heap_size(),
+        0
+    );
+}
+
+#[test]
 fn chrono() {
     use chrono::TimeZone;
 
@@ -377,4 +441,17 @@ fn test_portable_atomic() {
     let b = portable_atomic::AtomicBool::new(true);
     assert_eq!(b.get_heap_size(), 0);
     assert_eq!(b.get_size(), size_of::<portable_atomic::AtomicBool>());
+}
+
+#[test]
+fn uuid() {
+    for value in [uuid::Uuid::nil(), uuid::Uuid::from_u128(0x1234)] {
+        assert_eq!(value.get_heap_size(), 0);
+        assert_eq!(value.get_size(), size_of::<uuid::Uuid>());
+        assert_eq!(value.get_size(), 16);
+
+        let (size, tracker) = value.get_heap_size_with_tracker(NoTracker::new(false));
+        assert_eq!(size, 0);
+        assert!(!tracker.answer());
+    }
 }

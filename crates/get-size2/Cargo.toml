@@ -17,6 +17,7 @@ workspace = true
 [dependencies]
 get-size-derive2 = { workspace = true, optional = true }
 
+arcstr = { version = "1", default-features = false, features = ["substr"], optional = true }
 bytes = { version = "1", default-features = false, optional = true }
 chrono = { version = "0.4", default-features = false, optional = true }
 chrono-tz = { version = "0.10", default-features = false, optional = true }
@@ -35,10 +36,12 @@ roaring = { version = "0.11", default-features = false, optional = true }
 smallvec = { version = "1", default-features = false, optional = true }
 thin-vec = { version = "0.2", default-features = false, optional = true }
 url = { version = "2", default-features = false, optional = true }
+uuid = { version = "1", default-features = false, optional = true }
 
 [dev-dependencies]
 get-size2 = { path = ".", features = [
     "derive",
+    "arcstr",
     "bytes",
     "chrono",
     "chrono-tz",
@@ -55,6 +58,7 @@ get-size2 = { path = ".", features = [
     "smallvec",
     "thin-vec",
     "url",
+    "uuid",
 ] }
 
 [features]
@@ -66,6 +70,7 @@ std = ["alloc"]
 # Implements `GetSize` for types of the `alloc` crate (`Vec`, `String`, `Box`, ...).
 alloc = []
 
+arcstr = ["dep:arcstr", "alloc"]
 bytes = ["dep:bytes"]
 chrono = ["dep:chrono"]
 chrono-tz = ["dep:chrono-tz"]
@@ -84,6 +89,7 @@ roaring = ["dep:roaring"]
 smallvec = ["dep:smallvec"]
 thin-vec = ["dep:thin-vec"]
 url = ["dep:url"]
+uuid = ["dep:uuid"]
 
 # Feature pack enabling everything which works without `std`, which is every feature except
 # `dashmap` and `parking_lot`. Keeps `no_std` builds, and the CI job guarding them, in sync with
@@ -91,6 +97,7 @@ url = ["dep:url"]
 all-features-no-std = [
     "alloc",
     "derive",
+    "arcstr",
     "bytes",
     "chrono",
     "chrono-tz",
@@ -105,6 +112,7 @@ all-features-no-std = [
     "smallvec",
     "thin-vec",
     "url",
+    "uuid",
 ]
 
 [package.metadata.docs.rs]
