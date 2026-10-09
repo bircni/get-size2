@@ -9,10 +9,10 @@ version = "0.11.0"
 authors = ["Denis Kerp", "Nicolas"]
 
 [workspace.dependencies]
+syn = "3"
 get-size-derive2 = { version = "0.11.0", path = "crates/get-size-derive2" }
-syn = "2"
 quote = "1"
-attribute-derive = "0.10"
+attribute-derive = "0.11"
 
 [workspace.lints.rust]
 unsafe_code = "deny"
