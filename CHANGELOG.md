@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
+## [0.11.1](https://github.com/bircni/get-size2/compare/0.11.0..0.11.1) - 2026-10-10
+
+### Bug Fixes
+
+- Update syn to version 3, attribute-derive to 0.11 (#59) - ([8de83b7](https://github.com/bircni/get-size2/commit/8de83b7116503f978dc63055f014bb66389c0039)) - Ben Beasley
+
+### Features
+
+- impl GetSize for arcstr & uuid (#60) - ([be3d2e3](https://github.com/bircni/get-size2/commit/be3d2e3272d0569463a4819efd6a5ab7ed3fef1c)) - Utkarsh Gupta
+
 ## [0.11.0](https://github.com/bircni/get-size2/compare/0.10.3..0.11.0) - 2026-08-03
 
 ### Documentation
