@@ -33,7 +33,7 @@ parking_lot = { version = "0.12", default-features = false, optional = true }
 portable-atomic = { version = "1", default-features = false, features = [
     "fallback",
 ], optional = true }
-roaring = { version = "0.11", default-features = false, optional = true }
+roaring = { version = "0.12", default-features = false, optional = true }
 smallvec = { version = "1", default-features = false, optional = true }
 thin-vec = { version = "0.2", default-features = false, optional = true }
 url = { version = "2", default-features = false, optional = true }
