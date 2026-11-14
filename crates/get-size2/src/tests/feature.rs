@@ -95,6 +95,13 @@ fn chrono() {
     assert_eq!(datetime.timezone().get_heap_size(), 0);
     assert_eq!(datetime.fixed_offset().timezone().get_heap_size(), 0);
     assert_eq!(datetime.get_heap_size(), 0);
+
+    assert_eq!(chrono::Month::July.get_heap_size(), 0);
+    assert_eq!(chrono::Weekday::Tue.get_heap_size(), 0);
+    assert_eq!(
+        chrono::Weekday::Tue.get_size(),
+        size_of::<chrono::Weekday>()
+    );
 }
 
 #[test]
@@ -105,6 +112,12 @@ fn chrono_tz() {
         .with_ymd_and_hms(2014, 7, 8, 9, 10, 11)
         .unwrap();
     assert_eq!(datetime.offset().get_heap_size(), 0);
+    assert_eq!(datetime.timezone().get_heap_size(), 0);
+    assert_eq!(datetime.get_heap_size(), 0);
+    assert_eq!(
+        chrono_tz::Europe::Berlin.get_size(),
+        size_of::<chrono_tz::Tz>()
+    );
 }
 
 #[test]
@@ -462,6 +475,10 @@ fn test_portable_atomic() {
     assert_eq!(u128.get_heap_size(), 0);
     assert_eq!(u128.get_size(), size_of::<portable_atomic::AtomicU128>());
 
+    let ptr = portable_atomic::AtomicPtr::new(std::ptr::null_mut::<u8>());
+    assert_eq!(ptr.get_heap_size(), 0);
+    assert_eq!(ptr.get_size(), size_of::<portable_atomic::AtomicPtr<u8>>());
+
     let b = portable_atomic::AtomicBool::new(true);
     assert_eq!(b.get_heap_size(), 0);
     assert_eq!(b.get_size(), size_of::<portable_atomic::AtomicBool>());
@@ -534,6 +551,36 @@ fn parking_lot_trackers_deduplicate() {
     assert_tracks(parking_lot::RwLock::new(StandardTracker::new()));
     assert_tracks(Arc::new(parking_lot::Mutex::new(StandardTracker::new())));
     assert_tracks(Arc::new(parking_lot::RwLock::new(StandardTracker::new())));
+}
+
+#[test]
+fn parking_lot_fair_and_reentrant_mutex() {
+    let fair = parking_lot::FairMutex::new(String::from("locked"));
+    assert_eq!(fair.get_heap_size(), "locked".len());
+
+    let reentrant = parking_lot::ReentrantMutex::new(String::from("locked"));
+    assert_eq!(reentrant.get_heap_size(), "locked".len());
+
+    // The holding thread may lock again, so measuring does not deadlock.
+    let guard = reentrant.lock();
+    assert_eq!(reentrant.get_heap_size(), "locked".len());
+    drop(guard);
+}
+
+#[test]
+fn index_collections_need_no_hasher_bounds() {
+    // Regression test: the map required `BuildHasher` while the set did not.
+    struct NotAHasher;
+
+    let map = indexmap::IndexMap::<u64, String, NotAHasher>::with_hasher(NotAHasher);
+    assert_eq!(map.get_heap_size(), 0);
+    let set = indexmap::IndexSet::<u64, NotAHasher>::with_hasher(NotAHasher);
+    assert_eq!(set.get_heap_size(), 0);
+
+    let map = ordermap::OrderMap::<u64, String, NotAHasher>::with_hasher(NotAHasher);
+    assert_eq!(map.get_heap_size(), 0);
+    let set = ordermap::OrderSet::<u64, NotAHasher>::with_hasher(NotAHasher);
+    assert_eq!(set.get_heap_size(), 0);
 }
 
 #[test]
