@@ -15,25 +15,28 @@ pub trait GetSizeTracker {
     ///
     /// Returns `true` if the reference, as indexed by the pointed to `addr`, has not yet
     /// been seen by this tracker. Otherwise it returns `false`.
-    fn track<A>(&mut self, addr: *const A) -> bool;
+    ///
+    /// The target may be unsized, like a `str` or a slice. Only the address identifies the
+    /// object then, the length or vtable carried by such a pointer is not part of its identity.
+    fn track<A: ?Sized>(&mut self, addr: *const A) -> bool;
 }
 
 impl<T: GetSizeTracker> GetSizeTracker for &mut T {
-    fn track<A>(&mut self, addr: *const A) -> bool {
+    fn track<A: ?Sized>(&mut self, addr: *const A) -> bool {
         GetSizeTracker::track(*self, addr)
     }
 }
 
 #[cfg(feature = "alloc")]
 impl<T: GetSizeTracker> GetSizeTracker for Box<T> {
-    fn track<A>(&mut self, addr: *const A) -> bool {
+    fn track<A: ?Sized>(&mut self, addr: *const A) -> bool {
         GetSizeTracker::track(&mut **self, addr)
     }
 }
 
 #[cfg(feature = "std")]
 impl<T: GetSizeTracker> GetSizeTracker for Mutex<T> {
-    fn track<A>(&mut self, addr: *const A) -> bool {
+    fn track<A: ?Sized>(&mut self, addr: *const A) -> bool {
         let tracker = self
             .get_mut()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
@@ -44,7 +47,7 @@ impl<T: GetSizeTracker> GetSizeTracker for Mutex<T> {
 
 #[cfg(feature = "std")]
 impl<T: GetSizeTracker> GetSizeTracker for RwLock<T> {
-    fn track<A>(&mut self, addr: *const A) -> bool {
+    fn track<A: ?Sized>(&mut self, addr: *const A) -> bool {
         // The exclusive borrow already guarantees unique access, so no locking is needed.
         let tracker = self
             .get_mut()
@@ -56,7 +59,7 @@ impl<T: GetSizeTracker> GetSizeTracker for RwLock<T> {
 
 #[cfg(feature = "std")]
 impl<T: GetSizeTracker> GetSizeTracker for Arc<Mutex<T>> {
-    fn track<A>(&mut self, addr: *const A) -> bool {
+    fn track<A: ?Sized>(&mut self, addr: *const A) -> bool {
         let mut tracker = self
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
@@ -67,7 +70,7 @@ impl<T: GetSizeTracker> GetSizeTracker for Arc<Mutex<T>> {
 
 #[cfg(feature = "std")]
 impl<T: GetSizeTracker> GetSizeTracker for Arc<RwLock<T>> {
-    fn track<A>(&mut self, addr: *const A) -> bool {
+    fn track<A: ?Sized>(&mut self, addr: *const A) -> bool {
         let mut tracker = self
             .write()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
@@ -151,7 +154,7 @@ impl StandardTracker {
 
 #[cfg(feature = "alloc")]
 impl GetSizeTracker for StandardTracker {
-    fn track<A>(&mut self, addr: *const A) -> bool {
+    fn track<A: ?Sized>(&mut self, addr: *const A) -> bool {
         self.inner.insert(addr.addr())
     }
 }
@@ -182,7 +185,7 @@ impl NoTracker {
 }
 
 impl GetSizeTracker for NoTracker {
-    fn track<A>(&mut self, _addr: *const A) -> bool {
+    fn track<A: ?Sized>(&mut self, _addr: *const A) -> bool {
         self.answer
     }
 }

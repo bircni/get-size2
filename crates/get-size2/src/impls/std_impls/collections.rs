@@ -1,11 +1,10 @@
 use core::alloc::Layout;
 use std::collections::{HashMap, HashSet};
-use std::hash::BuildHasher;
 
 use crate::impls::layout::hash_table_size;
 use crate::{GetSize, GetSizeTracker};
 
-impl<K, V, S: BuildHasher> GetSize for HashMap<K, V, S>
+impl<K, V, S> GetSize for HashMap<K, V, S>
 where
     K: GetSize,
     V: GetSize,
@@ -24,7 +23,7 @@ where
     }
 }
 
-impl<T, S: BuildHasher> GetSize for HashSet<T, S>
+impl<T, S> GetSize for HashSet<T, S>
 where
     T: GetSize,
 {

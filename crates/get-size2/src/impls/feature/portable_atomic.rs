@@ -21,3 +21,4 @@ impl GetSize for portable_atomic::AtomicU32 {}
 impl GetSize for portable_atomic::AtomicU64 {}
 impl GetSize for portable_atomic::AtomicU128 {}
 impl GetSize for portable_atomic::AtomicUsize {}
+impl<T> GetSize for portable_atomic::AtomicPtr<T> {}
