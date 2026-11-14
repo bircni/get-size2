@@ -1,4 +1,13 @@
+use core::alloc::Layout;
+
+use crate::impls::layout::hash_table_size;
 use crate::{GetSize, GetSizeTracker};
+
+// The entries live in a `Vec`, each next to its cached hash. A separate hash table maps the
+// hashes to their position inside that `Vec`.
+fn allocation_size<Entry>(capacity: usize) -> usize {
+    capacity * size_of::<(usize, Entry)>() + hash_table_size(capacity, Layout::new::<usize>())
+}
 
 impl<K, V, S> GetSize for ordermap::OrderMap<K, V, S>
 where
@@ -15,8 +24,7 @@ where
                 (size + key_size + value_size, tracker)
             });
 
-        let allocation_size = self.capacity() * <(K, V)>::get_stack_size();
-        (size + allocation_size, tracker)
+        (size + allocation_size::<(K, V)>(self.capacity()), tracker)
     }
 }
 
@@ -30,7 +38,6 @@ where
             (size + elem_size, tracker)
         });
 
-        let allocation_size = self.capacity() * T::get_stack_size();
-        (size + allocation_size, tracker)
+        (size + allocation_size::<T>(self.capacity()), tracker)
     }
 }

@@ -3,6 +3,8 @@ use alloc::boxed::Box;
 #[cfg(all(feature = "alloc", not(feature = "std")))]
 use alloc::collections::BTreeSet;
 #[cfg(feature = "std")]
+use core::hash::{BuildHasherDefault, Hasher};
+#[cfg(feature = "std")]
 use std::collections::HashSet;
 #[cfg(feature = "std")]
 use std::sync::{Arc, Mutex, RwLock};
@@ -43,8 +45,9 @@ impl<T: GetSizeTracker> GetSizeTracker for Mutex<T> {
 #[cfg(feature = "std")]
 impl<T: GetSizeTracker> GetSizeTracker for RwLock<T> {
     fn track<A>(&mut self, addr: *const A) -> bool {
-        let mut tracker = self
-            .write()
+        // The exclusive borrow already guarantees unique access, so no locking is needed.
+        let tracker = self
+            .get_mut()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
 
         GetSizeTracker::track(&mut *tracker, addr)
@@ -73,14 +76,59 @@ impl<T: GetSizeTracker> GetSizeTracker for Arc<RwLock<T>> {
     }
 }
 
-// The set of addresses already seen by a `StandardTracker`. A `HashSet` needs the random state
-// provided by `std`, so `no_std` builds fall back to the `alloc` only `BTreeSet`.
+/// Hashes the addresses seen by a [`StandardTracker`].
+///
+/// The default `SipHash` of the standard library is built to withstand attacker chosen keys,
+/// which is wasted effort for the addresses of the measured value's own allocations. A single
+/// multiplication mixes them well enough and is noticeably cheaper.
 #[cfg(feature = "std")]
-type SeenAddresses = HashSet<usize>;
+#[derive(Debug, Default, Clone, Copy)]
+struct AddressHasher(u64);
+
+#[cfg(feature = "std")]
+impl AddressHasher {
+    // The 64 bit golden ratio constant, as used by Fibonacci hashing.
+    const MULTIPLIER: u64 = 0x9E37_79B9_7F4A_7C15;
+
+    const fn mix(&mut self, value: u64) {
+        let product = (self.0 ^ value).wrapping_mul(Self::MULTIPLIER);
+
+        // Allocations are aligned, so the lowest bits of an address are always zero and stay
+        // zero after the multiplication. Folding the well mixed upper half onto the lower half
+        // gives the hash table usable low bits to select a bucket with.
+        self.0 = product ^ (product >> 32);
+    }
+}
+
+#[cfg(feature = "std")]
+impl Hasher for AddressHasher {
+    fn finish(&self) -> u64 {
+        self.0
+    }
+
+    fn write(&mut self, bytes: &[u8]) {
+        for &byte in bytes {
+            self.mix(u64::from(byte));
+        }
+    }
+
+    fn write_usize(&mut self, value: usize) {
+        // A `usize` is at most 64 bits wide on every supported target.
+        self.mix(value as u64);
+    }
+}
+
+// The set of addresses already seen by a `StandardTracker`. A `HashSet` is only provided by
+// `std`, so `no_std` builds fall back to the `alloc` only `BTreeSet`.
+#[cfg(feature = "std")]
+type SeenAddresses = HashSet<usize, BuildHasherDefault<AddressHasher>>;
 #[cfg(all(feature = "alloc", not(feature = "std")))]
 type SeenAddresses = BTreeSet<usize>;
 
 /// A simple standard tracker which can be used to track shared ownership references.
+///
+/// It remembers the address of every allocation it has been asked to track. Creating one does
+/// not allocate, so starting a fresh tracker for a single measurement is cheap.
 #[cfg(feature = "alloc")]
 #[derive(Debug, Default)]
 pub struct StandardTracker {
@@ -89,11 +137,13 @@ pub struct StandardTracker {
 
 #[cfg(feature = "alloc")]
 impl StandardTracker {
+    /// Creates a new tracker which has not seen any address yet.
     #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
+    /// Forgets all addresses seen so far, keeping the allocated memory for reuse.
     pub fn clear(&mut self) {
         self.inner.clear();
     }

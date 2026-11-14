@@ -24,7 +24,9 @@ fn arcstr_shared() {
     const TEXT: &str = "Hello world";
     let value = arcstr::ArcStr::from(TEXT);
     let shared = (arcstr::ArcStr::clone(&value), arcstr::ArcStr::clone(&value));
-    assert_eq!(shared.get_heap_size(), (ARCSTR_HEADER + TEXT.len()) * 2);
+    let (size, _) = shared.get_heap_size_with_tracker(NoTracker::new(true));
+    assert_eq!(size, (ARCSTR_HEADER + TEXT.len()) * 2);
+    assert_eq!(shared.get_heap_size(), ARCSTR_HEADER + TEXT.len());
     let (size, tracker) = shared.get_heap_size_with_tracker(StandardTracker::new());
     assert_eq!(size, ARCSTR_HEADER + TEXT.len());
 
@@ -120,10 +122,19 @@ fn bytes() {
     let bytes = bytes::Bytes::from(BYTES_STR);
     assert_eq!(bytes.get_heap_size(), BYTES_STR.len());
 
+    // Clones share their buffer, which is only counted once.
+    let clones = (bytes.clone(), bytes);
+    assert_eq!(clones.get_heap_size(), BYTES_STR.len());
+    assert_eq!(bytes::Bytes::new().get_heap_size(), 0);
+
     let mut bytes_mut = bytes::BytesMut::from(BYTES_STR);
     assert_eq!(bytes_mut.get_heap_size(), BYTES_STR.len());
+
+    // Regression test: the length was reported instead of the allocated capacity.
     bytes_mut.truncate(0);
-    assert_eq!(bytes_mut.get_heap_size(), 0);
+    assert_eq!(bytes_mut.get_heap_size(), bytes_mut.capacity());
+    let bytes_mut = bytes::BytesMut::with_capacity(1000);
+    assert!(bytes_mut.get_heap_size() >= 1000);
 }
 
 #[test]
@@ -251,11 +262,12 @@ fn test_indexmap() {
     let hasher = RandomState::new();
 
     let mut map = indexmap::IndexMap::with_capacity_and_hasher(1, hasher);
-    // The allocation is `capacity * size_of::<(K, V)>()`, which is pointer-width
-    // dependent (40 bytes on 64-bit, 20 on 32-bit) — don't hard-code it.
+    // The entries are stored next to their hash, and indexed by a hash table of positions. All
+    // of it is pointer-width dependent, so don't hard-code it.
     assert_eq!(
         map.get_heap_size(),
-        map.capacity() * size_of::<(&'static str, String)>()
+        map.capacity() * size_of::<(usize, (&'static str, String))>()
+            + hashbrown::HashTable::<usize>::with_capacity(map.capacity()).allocation_size()
     );
     map.insert(VALUE_STR, String::from(VALUE_STR));
     assert!(map.get_heap_size() >= size_of::<(&'static str, String)>() + VALUE_STR.len());
@@ -300,11 +312,12 @@ fn test_ordermap() {
     let hasher = RandomState::new();
 
     let mut map = ordermap::OrderMap::with_capacity_and_hasher(1, hasher);
-    // The allocation is `capacity * size_of::<(K, V)>()`, which is pointer-width
-    // dependent (40 bytes on 64-bit, 20 on 32-bit) — don't hard-code it.
+    // The entries are stored next to their hash, and indexed by a hash table of positions. All
+    // of it is pointer-width dependent, so don't hard-code it.
     assert_eq!(
         map.get_heap_size(),
-        map.capacity() * size_of::<(&'static str, String)>()
+        map.capacity() * size_of::<(usize, (&'static str, String))>()
+            + hashbrown::HashTable::<usize>::with_capacity(map.capacity()).allocation_size()
     );
     map.insert(VALUE_STR, String::from(VALUE_STR));
     assert!(map.get_heap_size() >= size_of::<(&'static str, String)>() + VALUE_STR.len());
@@ -462,4 +475,52 @@ fn uuid() {
         assert_eq!(size, 0);
         assert!(!tracker.answer());
     }
+}
+
+#[test]
+fn smallvec_spilled_stays_on_heap() {
+    // Regression test: a spilled vector which shrank below its inline size reported no heap.
+    let mut vec: smallvec::SmallVec<[u64; 4]> = (0..100).collect();
+    vec.truncate(2);
+
+    assert!(vec.spilled());
+    assert_eq!(vec.get_heap_size(), vec.capacity() * size_of::<u64>());
+}
+
+#[test]
+fn std_hash_tables_match_hashbrown() {
+    // The standard library does not expose the allocation size of its `hashbrown` based tables,
+    // so the estimate is checked against the real thing.
+    for capacity in [0, 1, 3, 4, 7, 8, 14, 15, 28, 29, 100, 1000, 10_000] {
+        let map = std::collections::HashMap::<u64, [u8; 3]>::with_capacity(capacity);
+        let reference = hashbrown::HashTable::<(u64, [u8; 3])>::with_capacity(map.capacity());
+        assert_eq!(
+            map.get_heap_size(),
+            reference.allocation_size(),
+            "map capacity {capacity}"
+        );
+
+        let set = std::collections::HashSet::<u8>::with_capacity(capacity);
+        let reference = hashbrown::HashTable::<u8>::with_capacity(set.capacity());
+        assert_eq!(
+            set.get_heap_size(),
+            reference.allocation_size(),
+            "set capacity {capacity}"
+        );
+    }
+}
+
+#[test]
+fn parking_lot_locked_values_are_not_waited_for() {
+    let mutex = parking_lot::Mutex::new(String::from("locked"));
+    let guard = mutex.lock();
+    assert_eq!(mutex.get_heap_size(), 0);
+    drop(guard);
+    assert_eq!(mutex.get_heap_size(), "locked".len());
+
+    let rwlock = parking_lot::RwLock::new(String::from("locked"));
+    let guard = rwlock.write();
+    assert_eq!(rwlock.get_heap_size(), 0);
+    drop(guard);
+    assert_eq!(rwlock.get_heap_size(), "locked".len());
 }

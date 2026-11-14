@@ -1,16 +1,18 @@
 use crate::{GetSize, GetSizeTracker};
 
-// parking_lot's Mutex/RwLock are infallible (no poisoning) so these are
-// simpler than the std::sync variants in `impls/std_impls/sync.rs` — no
-// `unwrap_or_else(PoisonError::into_inner)` recovery needed.
+// parking_lot's Mutex/RwLock do not poison, so these are simpler than the
+// std::sync variants in `impls/std_impls/sync.rs`. Like those they never
+// block: a lock which cannot be acquired right away reports 0.
 
 impl<T> GetSize for parking_lot::Mutex<T>
 where
     T: GetSize,
 {
     fn get_heap_size_with_tracker<Tr: GetSizeTracker>(&self, tracker: Tr) -> (usize, Tr) {
-        let guard = self.lock();
-        T::get_heap_size_with_tracker(&*guard, tracker)
+        match self.try_lock() {
+            Some(guard) => T::get_heap_size_with_tracker(&*guard, tracker),
+            None => (0, tracker),
+        }
     }
 }
 
@@ -19,8 +21,10 @@ where
     T: GetSize,
 {
     fn get_heap_size_with_tracker<Tr: GetSizeTracker>(&self, tracker: Tr) -> (usize, Tr) {
-        let guard = self.read();
-        T::get_heap_size_with_tracker(&*guard, tracker)
+        match self.try_read() {
+            Some(guard) => T::get_heap_size_with_tracker(&*guard, tracker),
+            None => (0, tracker),
+        }
     }
 }
 

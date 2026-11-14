@@ -10,9 +10,8 @@ Derives the `GetSize` trait of [get-size2](https://crates.io/crates/get-size2) f
 
 This crate is re-exported by `get-size2`, so depend on that with the `derive` feature instead of adding it directly:
 
-```toml
-[dependencies]
-get-size2 = { version = "^0.10", features = ["derive"] }
+```sh
+cargo add get-size2 --features derive
 ```
 
 ```rust
@@ -27,7 +26,7 @@ struct Data {
 assert_eq!(Data { name: "Hello".into(), id: 1 }.get_heap_size(), 5);
 ```
 
-The generated implementation sums up the heap size of every field, so every field type has to implement `GetSize` as well. Shared ownership is deduplicated, since the generated implementation threads a tracker through all fields. Unions are not supported.
+The generated implementation sums up the heap size of every field, so every field type has to implement `GetSize` as well. Shared ownership is deduplicated, since the generated implementation threads the tracker through all fields. Unions are not supported.
 
 ## Attributes
 
@@ -37,7 +36,7 @@ For fields whose type does not implement `GetSize`, the `#[get_size(...)]` attri
 | --------- | -------- | ------ |
 | `#[get_size(ignore)]` | Field | Skips the field, contributing `0` |
 | `#[get_size(size = 1024)]` | Field | Accounts the field with a fixed number of bytes |
-| `#[get_size(size_fn = my_helper)]` | Field | Calls `my_helper(&field)` to determine the heap size |
+| `#[get_size(size_fn = my_helper)]` | Field | Calls `my_helper(&field)` to determine the heap size, a path like `helpers::my_helper` works as well |
 | `#[get_size(ignore(A, B))]` | Struct or enum | Drops the `GetSize` bound on the listed generic types |
 
 ## Documentation
