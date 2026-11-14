@@ -74,12 +74,23 @@ pub fn hash_table_size(capacity: usize, entry: Layout) -> usize {
         return 0;
     }
 
-    // A zero sized entry type reports an unbounded capacity, and occupies no buckets anyway.
-    let buckets = capacity
-        .checked_mul(8)
-        .map(|scaled| scaled / 7)
-        .and_then(usize::checked_next_power_of_two)
-        .map_or(4, |buckets| buckets.max(4));
+    // Mirrors how `hashbrown` picks the number of buckets for a requested capacity: small
+    // tables keep one bucket free, larger ones are filled up to 7/8. A capacity reported by a
+    // table yields its own number of buckets again. A zero sized entry type reports an unbounded
+    // capacity, for which the smallest table is assumed.
+    let buckets = if capacity < 4 {
+        4
+    } else if capacity < 8 {
+        8
+    } else if capacity < 15 {
+        16
+    } else {
+        capacity
+            .checked_mul(8)
+            .map(|scaled| scaled / 7)
+            .and_then(usize::checked_next_power_of_two)
+            .unwrap_or(4)
+    };
 
     let ctrl_align = entry.align().max(GROUP_WIDTH);
     let entries = buckets.saturating_mul(entry.size());

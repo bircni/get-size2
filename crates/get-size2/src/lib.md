@@ -216,7 +216,7 @@ Each of these features implements [`GetSize`] for the types of the respective cr
 | `ordermap` | `OrderMap`, `OrderSet` | |
 | `orx-concurrent-vec` | `ConcurrentVec` | |
 | `parking_lot` | `Mutex`, `FairMutex`, `ReentrantMutex`, `RwLock`; `Mutex` and `RwLock` also as trackers | yes |
-| `portable-atomic` | All `portable_atomic` integer atomics, including the 128 bit ones, `AtomicBool` and `AtomicPtr` | |
+| `portable-atomic` | `AtomicBool`, `AtomicPtr` and the `portable_atomic` integer atomics. The 64 and 128 bit ones need a target with atomic compare-and-swap | |
 | `roaring` | `RoaringBitmap`, `RoaringTreemap` | |
 | `smallvec` | `SmallVec` | |
 | `thin-vec` | `ThinVec` | |
@@ -234,5 +234,6 @@ The reported sizes are a best effort based on the public API of the measured typ
 - Unused capacity is counted, since it is allocated. Small string and small vector optimizations are respected, so inline data is not double counted.
 - The bookkeeping stored inside an allocation is counted where its layout is known: the reference counters of `Rc` and `Arc`, the links of a `LinkedList` node, and the control bytes and spare buckets of hash tables. The standard library and `indexmap` do not expose the size of their hash tables, so it is estimated from their capacity and the layout of the underlying `hashbrown` table. That is exact for a table which never had an entry removed; removals lower the reported capacity without shrinking the allocation, so the estimate is then too low.
 - Allocator bookkeeping, padding between allocations, the internal node overhead of `BTreeMap` and `BTreeSet` and the shards of a `DashMap` are not counted, so results are usually a lower bound on what the allocator actually reserved. The exceptions are a `Bytes` buffer which is shared or `'static`, and the estimated entry size of `indexmap` and `ordermap` collections.
+- A `RoaringBitmap` is measured through its container statistics: bitset containers are exact, while the spare capacity of array and run containers and the list of containers itself are not counted.
 - Values behind a raw pointer are not counted, since ownership cannot be determined.
 - A locking type ([`Mutex`](std::sync::Mutex), [`RwLock`](std::sync::RwLock), `RefCell`) is measured by reading its content. A poisoned lock is measured anyway, while an already mutably borrowed `RefCell` is reported as `0` instead of panicking. Measuring a `Mutex` or `RwLock` waits for the lock, so do not measure one the calling thread itself holds. A `parking_lot::ReentrantMutex` is the exception, since its holder may lock it again. A `ManuallyDrop` is measured as the owner of a live value.

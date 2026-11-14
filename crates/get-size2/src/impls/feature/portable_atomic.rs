@@ -12,13 +12,23 @@ impl GetSize for portable_atomic::AtomicBool {}
 impl GetSize for portable_atomic::AtomicI8 {}
 impl GetSize for portable_atomic::AtomicI16 {}
 impl GetSize for portable_atomic::AtomicI32 {}
-impl GetSize for portable_atomic::AtomicI64 {}
-impl GetSize for portable_atomic::AtomicI128 {}
 impl GetSize for portable_atomic::AtomicIsize {}
 impl GetSize for portable_atomic::AtomicU8 {}
 impl GetSize for portable_atomic::AtomicU16 {}
 impl GetSize for portable_atomic::AtomicU32 {}
-impl GetSize for portable_atomic::AtomicU64 {}
-impl GetSize for portable_atomic::AtomicU128 {}
 impl GetSize for portable_atomic::AtomicUsize {}
 impl<T> GetSize for portable_atomic::AtomicPtr<T> {}
+
+// The 64 and 128 bit atomics are emulated by a fallback wherever they are not native. That
+// fallback needs compare-and-swap, which a few bare metal targets (like `thumbv6m`) lack unless
+// `portable-atomic` is told how to disable interrupts through one of its own features. Whether
+// that is the case is not visible from here, so on such targets these types are left out.
+#[cfg(target_has_atomic = "ptr")]
+mod wide {
+    use crate::GetSize;
+
+    impl GetSize for portable_atomic::AtomicI64 {}
+    impl GetSize for portable_atomic::AtomicI128 {}
+    impl GetSize for portable_atomic::AtomicU64 {}
+    impl GetSize for portable_atomic::AtomicU128 {}
+}

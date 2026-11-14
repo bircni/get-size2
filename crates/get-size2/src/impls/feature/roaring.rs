@@ -1,22 +1,30 @@
 use crate::{GetSize, GetSizeTracker};
 
-// Container allocations live in a private `Vec<Container>`; `statistics()`
-// is the only public proxy for their byte totals. Per-container key/tag
-// fields and the outer `Vec<Container>` slots are not counted — bounded
-// by 65 536 containers per bitmap, negligible vs. up to ~512 MiB of
-// container payload.
+// The containers live in a private `Vec<Container>`, so `statistics()` is the only way to learn
+// about them. Its byte totals do not describe the allocations though: they report eight times
+// the size of a bitset container and twice the capacity of an array container. The heap size is
+// therefore derived from the container and value counts instead:
+//
+// - a bitset container always allocates 1024 words of 64 bits,
+// - an array container stores each value as a `u16`,
+// - a run container stores each run as two `u16`, which its serialized size covers.
+//
+// The spare capacity of array and run containers and the `Vec<Container>` itself cannot be
+// measured, so the result is a lower bound.
+
+/// The bytes allocated by a bitset container.
+const BITSET_CONTAINER_BYTES: u64 = 1024 * 8;
 
 impl GetSize for roaring::RoaringBitmap {
     fn get_heap_size_with_tracker<Tr: GetSizeTracker>(&self, tracker: Tr) -> (usize, Tr) {
         let s = self.statistics();
-        let bytes =
-            s.n_bytes_array_containers + s.n_bytes_bitset_containers + s.n_bytes_run_containers;
-        // u64 → usize: bounded ~512 MiB so fits everywhere; saturate
-        // defensively in release, surface the invariant breach in debug.
-        debug_assert!(
-            usize::try_from(bytes).is_ok(),
-            "container byte total {bytes} exceeds usize::MAX"
-        );
+        let bytes = u64::from(s.n_bitset_containers)
+            .saturating_mul(BITSET_CONTAINER_BYTES)
+            .saturating_add(u64::from(s.n_values_array_containers).saturating_mul(2))
+            .saturating_add(s.n_bytes_run_containers);
+
+        // At most 65 536 containers of 8 KiB each, which fits everywhere but is saturated to be
+        // safe.
         (usize::try_from(bytes).unwrap_or(usize::MAX), tracker)
     }
 }
