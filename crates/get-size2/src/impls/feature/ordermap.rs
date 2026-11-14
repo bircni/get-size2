@@ -1,3 +1,4 @@
+use crate::impls::layout::index_map_size;
 use crate::{GetSize, GetSizeTracker};
 
 impl<K, V, S> GetSize for ordermap::OrderMap<K, V, S>
@@ -15,8 +16,7 @@ where
                 (size + key_size + value_size, tracker)
             });
 
-        let allocation_size = self.capacity() * <(K, V)>::get_stack_size();
-        (size + allocation_size, tracker)
+        (size + index_map_size::<K, V>(self.capacity()), tracker)
     }
 }
 
@@ -30,7 +30,6 @@ where
             (size + elem_size, tracker)
         });
 
-        let allocation_size = self.capacity() * T::get_stack_size();
-        (size + allocation_size, tracker)
+        (size + index_map_size::<T, ()>(self.capacity()), tracker)
     }
 }

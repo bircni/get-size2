@@ -3,117 +3,236 @@
 //! This crate is re-exported by `get-size2` and is meant to be used through its `derive` feature.
 //! See [`GetSize`](macro@GetSize) for the attribute reference.
 
-use attribute_derive::{Attribute, FromAttr};
+use attribute_derive::FromAttr;
 use proc_macro::TokenStream;
+use proc_macro2::TokenStream as TokenStream2;
 use quote::{format_ident, quote};
 
+/// The `#[get_size(...)]` attribute of a single field.
 #[derive(FromAttr, Default, Debug)]
 #[attribute(ident = get_size)]
-struct StructFieldAttribute {
+struct FieldAttribute {
     #[attribute(conflicts = [size_fn, ignore])]
     size: Option<usize>,
     #[attribute(conflicts = [size, ignore])]
-    size_fn: Option<syn::Ident>,
+    size_fn: Option<syn::Expr>,
     #[attribute(conflicts = [size, size_fn])]
     ignore: bool,
 }
 
-fn extract_ignored_generics_list(list: &Vec<syn::Attribute>) -> Vec<syn::PathSegment> {
-    let mut collection = Vec::new();
-
-    for attr in list {
-        let mut list = extract_ignored_generics(attr);
-
-        collection.append(&mut list);
-    }
-
-    collection
+/// How the heap size of a single field is determined.
+enum FieldSize {
+    /// `#[get_size(size = ...)]`: a fixed number of bytes.
+    Fixed(usize),
+    /// `#[get_size(size_fn = ...)]`: the result of calling a helper with a reference to the field.
+    Helper(syn::ExprPath),
+    /// `#[get_size(ignore)]`: nothing at all.
+    Ignored,
+    /// No attribute: the field's own [`GetSize`] implementation.
+    Measured,
 }
 
-fn extract_ignored_generics(attr: &syn::Attribute) -> Vec<syn::PathSegment> {
-    let mut collection = Vec::new();
+impl FieldSize {
+    fn of(field: &syn::Field) -> syn::Result<Self> {
+        let attr = FieldAttribute::from_attributes(&field.attrs)
+            .map_err(|err| syn::Error::new_spanned(field, err.to_string()))?;
 
-    // Skip all attributes which do not belong to us.
-    if !attr.meta.path().is_ident("get_size") {
-        return collection;
+        Ok(if let Some(size) = attr.size {
+            Self::Fixed(size)
+        } else if let Some(size_fn) = attr.size_fn {
+            // Parsing an expression, not a type like path, makes generic arguments require the
+            // turbofish, exactly as they do when the helper is called by hand.
+            let syn::Expr::Path(size_fn) = size_fn else {
+                return Err(syn::Error::new_spanned(
+                    size_fn,
+                    "`size_fn` expects the name of or the path to a function",
+                ));
+            };
+
+            Self::Helper(size_fn)
+        } else if attr.ignore {
+            Self::Ignored
+        } else {
+            Self::Measured
+        })
     }
 
-    // Make sure it is a list: #[get_size(...)]
-    let Ok(list) = attr.meta.require_list() else {
-        return collection;
-    };
+    /// Whether the generated code has to access the field's value.
+    const fn reads_field(&self) -> bool {
+        matches!(self, Self::Helper(_) | Self::Measured)
+    }
+}
 
-    // Parse the nested meta: #[get_size(ignore(...))] or #[get_size(ignore)]
-    let _ = list.parse_nested_meta(|meta| {
-        // Only handle `ignore`
-        if !meta.path.is_ident("ignore") {
-            return Ok(()); // Skip unrelated
-        }
+/// A field, addressed by its name or by its position for tuple structs and tuple variants.
+struct Field {
+    member: syn::Member,
+    size: FieldSize,
+}
 
-        // Handle the flag case: #[get_size(ignore)]
-        if meta.input.is_empty() {
-            // Do nothing – valid empty ignore
-            return Ok(());
-        }
+impl Field {
+    fn collect(fields: &syn::Fields) -> syn::Result<Vec<Self>> {
+        fields
+            .iter()
+            .enumerate()
+            .map(|(index, field)| {
+                let member = field.ident.clone().map_or_else(
+                    || syn::Member::Unnamed(syn::Index::from(index)),
+                    syn::Member::Named,
+                );
 
-        // Handle the list case: #[get_size(ignore(A, B))]
-        meta.parse_nested_meta(|meta| {
-            for segment in meta.path.segments {
-                collection.push(segment);
+                Ok(Self {
+                    member,
+                    size: FieldSize::of(field)?,
+                })
+            })
+            .collect()
+    }
+}
+
+/// Generates the body which adds up the heap size of `fields` and returns it with the tracker.
+///
+/// `reference` builds the expression which evaluates to a reference to the given field. Every
+/// identifier introduced here is prefixed, so that it can never collide with the name of a field
+/// bound by an enum variant pattern.
+fn sum_fields(fields: &[Field], reference: impl Fn(usize, &Field) -> TokenStream2) -> TokenStream2 {
+    let additions = fields
+        .iter()
+        .enumerate()
+        .filter_map(|(index, field)| match &field.size {
+            FieldSize::Fixed(size) => Some(quote! {
+                let __get_size_total = __get_size_total + #size;
+            }),
+            FieldSize::Helper(size_fn) => {
+                let reference = reference(index, field);
+                Some(quote! {
+                    let __get_size_total = __get_size_total + #size_fn(#reference);
+                })
             }
-            Ok(())
-        })?;
+            FieldSize::Ignored => None,
+            FieldSize::Measured => {
+                let reference = reference(index, field);
+                Some(quote! {
+                    let (__get_size_field, __get_size_tracker) =
+                        ::get_size2::GetSize::get_heap_size_with_tracker(#reference, __get_size_tracker);
+                    let __get_size_total = __get_size_total + __get_size_field;
+                })
+            }
+        });
 
-        Ok(())
+    quote! {
+        let __get_size_total = 0usize;
+        #(#additions)*
+        (__get_size_total, __get_size_tracker)
+    }
+}
+
+/// Generates the match arm measuring a single enum variant.
+fn variant_arm(variant: &syn::Variant) -> syn::Result<TokenStream2> {
+    let ident = &variant.ident;
+    let fields = Field::collect(&variant.fields)?;
+
+    let binding = |index: usize| format_ident!("__get_size_field_{index}");
+
+    // Only the fields which are actually read get bound, the rest is covered by the `..` rest
+    // pattern. The struct like pattern works for named, tuple and unit variants alike.
+    let bindings = fields
+        .iter()
+        .enumerate()
+        .filter(|(_index, field)| field.size.reads_field())
+        .map(|(index, field)| {
+            let member = &field.member;
+            let binding = binding(index);
+            quote! { #member: #binding }
+        });
+
+    let body = sum_fields(&fields, |index, _field| {
+        let binding = binding(index);
+        quote! { #binding }
     });
 
-    collection
+    Ok(quote! {
+        Self::#ident { #(#bindings,)* .. } => { #body }
+    })
 }
 
-fn collect_all_ignored_generics(ast: &syn::DeriveInput) -> Vec<syn::PathSegment> {
-    let mut ignored = extract_ignored_generics_list(&ast.attrs);
-
-    match &ast.data {
-        syn::Data::Struct(data_struct) => {
-            for field in &data_struct.fields {
-                ignored.extend(extract_ignored_generics_list(&field.attrs));
-            }
-        }
-        syn::Data::Enum(data_enum) => {
-            for variant in &data_enum.variants {
-                ignored.extend(extract_ignored_generics_list(&variant.attrs));
-                for field in &variant.fields {
-                    ignored.extend(extract_ignored_generics_list(&field.attrs));
-                }
-            }
-        }
-        syn::Data::Union(_) => {}
+/// Extracts the generics listed by a struct, enum or variant level `#[get_size(ignore(A, B))]`.
+fn ignored_generics_of(attr: &syn::Attribute, ignored: &mut Vec<syn::Ident>) -> syn::Result<()> {
+    // Skip all attributes which do not belong to us.
+    if !attr.path().is_ident("get_size") {
+        return Ok(());
     }
 
-    ignored
+    attr.parse_nested_meta(|meta| {
+        if meta.path.is_ident("ignore") && meta.input.peek(syn::token::Paren) {
+            return meta.parse_nested_meta(|generic| {
+                ignored.push(generic.path.require_ident()?.clone());
+                Ok(())
+            });
+        }
+
+        // Anything else would be accepted without having any effect.
+        Err(meta.error(
+            "only `ignore(...)` with a list of generic parameters is supported here, \
+             `ignore`, `size` and `size_fn` belong on a field",
+        ))
+    })
 }
 
-// Add a bound `T: GetSize` to every type parameter T, unless we ignore it.
-fn add_trait_bounds(mut generics: syn::Generics, ignored: &Vec<syn::PathSegment>) -> syn::Generics {
-    for param in &mut generics.params {
-        if let syn::GenericParam::Type(type_param) = param {
-            let mut found = false;
-            for ignored in ignored {
-                if ignored.ident == type_param.ident {
-                    found = true;
-                    break;
-                }
-            }
+/// Collects the generics which shall not receive a `GetSize` bound.
+///
+/// Fields are not searched: their attributes are parsed by [`FieldAttribute`], which only knows
+/// the plain `ignore` flag.
+fn ignored_generics(ast: &syn::DeriveInput) -> syn::Result<Vec<syn::Ident>> {
+    let variants = match &ast.data {
+        syn::Data::Enum(data_enum) => Some(&data_enum.variants),
+        syn::Data::Struct(_) | syn::Data::Union(_) => None,
+    };
 
-            if found {
-                continue;
-            }
+    let attrs = ast.attrs.iter().chain(
+        variants
+            .into_iter()
+            .flatten()
+            .flat_map(|variant| &variant.attrs),
+    );
 
+    let mut ignored = Vec::new();
+    for attr in attrs {
+        ignored_generics_of(attr, &mut ignored)?;
+    }
+
+    // A misspelled name would otherwise silently keep its bound. Const parameters never receive
+    // a bound, so listing one is harmless.
+    for ident in &ignored {
+        let known = ast.generics.params.iter().any(|param| match param {
+            syn::GenericParam::Type(param) => param.ident == *ident,
+            syn::GenericParam::Const(param) => param.ident == *ident,
+            syn::GenericParam::Lifetime(_) => false,
+        });
+
+        if !known {
+            return Err(syn::Error::new_spanned(
+                ident,
+                format!(
+                    "`{ident}` is not a generic type parameter of `{}`",
+                    ast.ident
+                ),
+            ));
+        }
+    }
+
+    Ok(ignored)
+}
+
+/// Adds a bound `T: GetSize` to every type parameter `T`, unless it is ignored.
+fn add_trait_bounds(mut generics: syn::Generics, ignored: &[syn::Ident]) -> syn::Generics {
+    for type_param in generics.type_params_mut() {
+        if !ignored.contains(&type_param.ident) {
             type_param
                 .bounds
                 .push(syn::parse_quote!(::get_size2::GetSize));
         }
     }
+
     generics
 }
 
@@ -121,267 +240,70 @@ fn add_trait_bounds(mut generics: syn::Generics, ignored: &Vec<syn::PathSegment>
 #[proc_macro_derive(GetSize, attributes(get_size))]
 pub fn derive_get_size(input: TokenStream) -> TokenStream {
     match derive_get_size_impl(input) {
-        Ok(tokens) => tokens,
+        Ok(tokens) => tokens.into(),
         Err(err) => err.to_compile_error().into(),
     }
 }
 
-#[expect(clippy::too_many_lines, reason = "Needs refactoring")]
-fn derive_get_size_impl(input: TokenStream) -> syn::Result<TokenStream> {
+fn derive_get_size_impl(input: TokenStream) -> syn::Result<TokenStream2> {
     // Construct a representation of Rust code as a syntax tree that we can manipulate.
     let ast: syn::DeriveInput = syn::parse(input)?;
 
-    // The name of the struct.
+    // Traverse the parsed data to generate the body measuring the fields. Types without any
+    // field own no heap memory, so the default implementation of the trait is already correct.
+    let body = match &ast.data {
+        syn::Data::Struct(data_struct) if data_struct.fields.is_empty() => None,
+        syn::Data::Struct(data_struct) => {
+            let fields = Field::collect(&data_struct.fields)?;
+
+            Some(sum_fields(&fields, |_index, field| {
+                let member = &field.member;
+                quote! { &self.#member }
+            }))
+        }
+        syn::Data::Enum(data_enum) if data_enum.variants.is_empty() => None,
+        syn::Data::Enum(data_enum) => {
+            let arms = data_enum
+                .variants
+                .iter()
+                .map(variant_arm)
+                .collect::<syn::Result<Vec<_>>>()?;
+
+            Some(quote! {
+                match self {
+                    #(#arms)*
+                }
+            })
+        }
+        syn::Data::Union(_data_union) => {
+            return Err(syn::Error::new_spanned(
+                &ast.ident,
+                "Deriving GetSize for unions is currently not supported.",
+            ));
+        }
+    };
+
+    let ignored = ignored_generics(&ast)?;
+
+    // The name and the generics of the struct/enum.
     let name = &ast.ident;
-
-    // Extract all generics we shall ignore.
-    // let ignored = extract_ignored_generics_list(&ast.attrs);
-    let ignored = collect_all_ignored_generics(&ast);
-
-    // Add a bound `T: GetSize` to every type parameter T.
-    let generics = add_trait_bounds(ast.generics, &ignored);
-
-    // Extract the generics of the struct/enum.
+    let generics = add_trait_bounds(ast.generics.clone(), &ignored);
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
-    // Traverse the parsed data to generate the individual parts of the function.
-    match ast.data {
-        syn::Data::Enum(data_enum) => {
-            if data_enum.variants.is_empty() {
-                // Empty enums are easy to implement.
-                let generated = quote! {
-                    impl ::get_size2::GetSize for #name {}
-                };
-                return Ok(generated.into());
+    let method = body.map(|body| {
+        quote! {
+            fn get_heap_size_with_tracker<__GetSizeTracker: ::get_size2::GetSizeTracker>(
+                &self,
+                __get_size_tracker: __GetSizeTracker,
+            ) -> (usize, __GetSizeTracker) {
+                #body
             }
-
-            let mut cmds = Vec::with_capacity(data_enum.variants.len());
-
-            for variant in data_enum.variants {
-                let ident = &variant.ident;
-
-                match &variant.fields {
-                    syn::Fields::Unnamed(unnamed_fields) => {
-                        let num_fields = unnamed_fields.unnamed.len();
-
-                        let mut field_idents = Vec::with_capacity(num_fields);
-                        let mut field_cmds = Vec::with_capacity(num_fields);
-
-                        for (i, field) in unnamed_fields.unnamed.iter().enumerate() {
-                            // Parse all relevant attributes.
-                            let attr = StructFieldAttribute::from_attributes(&field.attrs)
-                                .map_err(|err| syn::Error::new_spanned(field, err.to_string()))?;
-
-                            // Fields handled by `size` or `ignore` are never read, so they are
-                            // bound to a wildcard to avoid unused variable warnings.
-                            if let Some(size) = attr.size {
-                                field_idents.push(quote! { _ });
-                                field_cmds.push(quote! {
-                                    total += #size;
-                                });
-
-                                continue;
-                            } else if attr.ignore {
-                                field_idents.push(quote! { _ });
-
-                                continue;
-                            }
-
-                            let field_ident = format_ident!("v{i}");
-
-                            if let Some(size_fn) = attr.size_fn {
-                                field_cmds.push(quote! {
-                                    total += #size_fn(#field_ident);
-                                });
-                            } else {
-                                field_cmds.push(quote! {
-                                    let (total_add, tracker) = ::get_size2::GetSize::get_heap_size_with_tracker(#field_ident, tracker);
-                                    total += total_add;
-                                });
-                            }
-
-                            field_idents.push(quote! { #field_ident });
-                        }
-
-                        cmds.push(quote! {
-                            Self::#ident(#(#field_idents,)*) => {
-                                let mut total = 0;
-
-                                #(#field_cmds)*;
-
-                                (total, tracker)
-                            }
-                        });
-                    }
-                    syn::Fields::Named(named_fields) => {
-                        let mut field_idents = Vec::new();
-                        let mut field_cmds = Vec::new();
-                        let mut skipped_field = false;
-
-                        for field in &named_fields.named {
-                            let field_ident = field.ident.as_ref().ok_or_else(|| {
-                                syn::Error::new_spanned(field, "Expected named field")
-                            })?;
-
-                            let attr = StructFieldAttribute::from_attributes(&field.attrs)
-                                .map_err(|err| syn::Error::new_spanned(field, err.to_string()))?;
-
-                            // Fields handled by `size` or `ignore` are never read, so they stay
-                            // out of the pattern and are covered by its `..` rest pattern.
-                            if let Some(size) = attr.size {
-                                skipped_field = true;
-                                field_cmds.push(quote! {
-                                    total += #size;
-                                });
-
-                                continue;
-                            } else if attr.ignore {
-                                skipped_field = true;
-
-                                continue;
-                            }
-
-                            field_idents.push(field_ident);
-
-                            if let Some(size_fn) = attr.size_fn {
-                                field_cmds.push(quote! {
-                                    total += #size_fn(#field_ident);
-                                });
-                            } else {
-                                field_cmds.push(quote! {
-                                    let (total_add, tracker) = ::get_size2::GetSize::get_heap_size_with_tracker(#field_ident, tracker);
-                                    total += total_add;
-                                });
-                            }
-                        }
-
-                        let pattern = if skipped_field {
-                            quote! { Self::#ident { #(#field_idents,)* .. } }
-                        } else {
-                            quote! { Self::#ident { #(#field_idents,)* } }
-                        };
-
-                        cmds.push(quote! {
-                            #pattern => {
-                                let mut total = 0;
-                                #(#field_cmds)*
-                                (total, tracker)
-                            }
-                        });
-                    }
-
-                    syn::Fields::Unit => {
-                        cmds.push(quote! {
-                            Self::#ident => (0, tracker),
-                        });
-                    }
-                }
-            }
-
-            // Build the trait implementation
-            let generated = quote! {
-                impl #impl_generics ::get_size2::GetSize for #name #ty_generics #where_clause {
-                    fn get_heap_size(&self) -> usize {
-                        let tracker = ::get_size2::default_tracker();
-
-                        let (total, _) = ::get_size2::GetSize::get_heap_size_with_tracker(self, tracker);
-
-                        total
-                    }
-
-                    fn get_heap_size_with_tracker<TRACKER: ::get_size2::GetSizeTracker>(
-                        &self,
-                        tracker: TRACKER,
-                    ) -> (usize, TRACKER) {
-                        match self {
-                            #(#cmds)*
-                        }
-                    }
-                }
-            };
-            Ok(generated.into())
         }
-        syn::Data::Union(_data_union) => Err(syn::Error::new_spanned(
-            name,
-            "Deriving GetSize for unions is currently not supported.",
-        )),
-        syn::Data::Struct(data_struct) => {
-            if data_struct.fields.is_empty() {
-                // Empty structs are easy to implement.
-                let generated = quote! {
-                    impl ::get_size2::GetSize for #name {}
-                };
-                return Ok(generated.into());
-            }
+    });
 
-            let mut cmds = Vec::with_capacity(data_struct.fields.len());
-
-            let mut unidentified_fields_count = 0; // For newtypes
-
-            for field in &data_struct.fields {
-                // Parse all relevant attributes.
-                let attr = StructFieldAttribute::from_attributes(&field.attrs)
-                    .map_err(|err| syn::Error::new_spanned(field, err.to_string()))?;
-
-                // How this field is accessed: by name, or by position for tuple structs. The
-                // positional counter has to advance even when the field is handled by one of the
-                // attributes below, otherwise all following fields of a tuple struct would be
-                // read at the wrong position.
-                let accessor = field.ident.as_ref().map_or_else(
-                    || {
-                        let index = syn::Index::from(unidentified_fields_count);
-                        unidentified_fields_count += 1;
-                        quote! { #index }
-                    },
-                    |ident| quote! { #ident },
-                );
-
-                if let Some(size) = attr.size {
-                    cmds.push(quote! {
-                        total += #size;
-                    });
-
-                    continue;
-                } else if let Some(size_fn) = attr.size_fn {
-                    cmds.push(quote! {
-                        total += #size_fn(&self.#accessor);
-                    });
-
-                    continue;
-                } else if attr.ignore {
-                    continue;
-                }
-
-                cmds.push(quote! {
-                    let (total_add, tracker) = ::get_size2::GetSize::get_heap_size_with_tracker(&self.#accessor, tracker);
-                    total += total_add;
-                });
-            }
-
-            // Build the trait implementation
-            let generated = quote! {
-                impl #impl_generics ::get_size2::GetSize for #name #ty_generics #where_clause {
-                    fn get_heap_size(&self) -> usize {
-                        let tracker = ::get_size2::default_tracker();
-
-                        let (total, _) = ::get_size2::GetSize::get_heap_size_with_tracker(self, tracker);
-
-                        total
-                    }
-
-                    fn get_heap_size_with_tracker<TRACKER: ::get_size2::GetSizeTracker>(
-                        &self,
-                        tracker: TRACKER,
-                    ) -> (usize, TRACKER) {
-                        let mut total = 0;
-
-                        #(#cmds)*;
-
-                        (total, tracker)
-                    }
-                }
-            };
-            Ok(generated.into())
+    Ok(quote! {
+        impl #impl_generics ::get_size2::GetSize for #name #ty_generics #where_clause {
+            #method
         }
-    }
+    })
 }

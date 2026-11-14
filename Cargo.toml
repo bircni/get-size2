@@ -5,7 +5,7 @@ members = ["crates/get-size2", "crates/get-size-derive2"]
 [workspace.package]
 edition = "2024"
 rust-version = "1.85"
-license = "MIT OR Apache-2.0"
+license = "MIT"
 version = "0.11.1"
 authors = ["Denis Kerp", "Nicolas"]
 
@@ -13,6 +13,7 @@ authors = ["Denis Kerp", "Nicolas"]
 syn = "3"
 get-size-derive2 = { version = "0.11.1", path = "crates/get-size-derive2" }
 quote = "1"
+proc-macro2 = "1"
 attribute-derive = "0.11"
 
 [workspace.lints.rust]

@@ -10,9 +10,8 @@ Determine the size in bytes an object occupies inside RAM.
 
 > This repository is a fork of [get-size](https://github.com/DKerp/get-size), which is no longer maintained.
 
-```toml
-[dependencies]
-get-size2 = { version = "^0.10", features = ["derive"] }
+```sh
+cargo add get-size2 --features derive
 ```
 
 ```rust

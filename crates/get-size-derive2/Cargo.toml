@@ -17,6 +17,7 @@ proc-macro = true
 [dependencies]
 syn = { workspace = true, features = ["derive", "parsing"] }
 quote.workspace = true
+proc-macro2.workspace = true
 attribute-derive.workspace = true
 
 [dev-dependencies]

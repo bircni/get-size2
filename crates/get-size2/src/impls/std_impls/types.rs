@@ -7,7 +7,7 @@ use crate::{GetSize, GetSizeTracker};
 
 impl GetSize for OsString {
     fn get_heap_size_with_tracker<T: GetSizeTracker>(&self, tracker: T) -> (usize, T) {
-        (self.len(), tracker)
+        (self.capacity(), tracker)
     }
 }
 

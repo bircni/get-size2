@@ -2,11 +2,11 @@ Derives the [`GetSize`] trait for structs and enums.
 
 Available through the `derive` feature of [`get-size2`](https://docs.rs/get-size2):
 
-```toml
-get-size2 = { version = "^0.10", features = ["derive"] }
+```sh
+cargo add get-size2 --features derive
 ```
 
-The generated [`get_heap_size`] implementation calls [`get_heap_size`] on every field and sums up the results, which means every field type must implement [`GetSize`] as well, unless it is handled by one of the [attributes](#attributes) below. Shared ownership is deduplicated, since the generated implementation threads a tracker through all fields.
+The generated implementation measures the heap size of every field and sums up the results, which means every field type must implement [`GetSize`] as well, unless it is handled by one of the [attributes](#attributes) below. Shared ownership is deduplicated, since the generated implementation threads the tracker through all fields.
 
 Unions are not supported and produce a compile error.
 
@@ -120,7 +120,7 @@ If a field's type does not implement [`GetSize`], the `#[get_size(...)]` attribu
 | --------- | -------- | ------ |
 | `#[get_size(ignore)]` | Field | Skips the field, contributing `0` |
 | `#[get_size(size = 1024)]` | Field | Accounts the field with a fixed number of bytes |
-| `#[get_size(size_fn = my_helper)]` | Field | Calls `my_helper(&field)` to determine the heap size |
+| `#[get_size(size_fn = my_helper)]` | Field | Calls `my_helper(&field)` to determine the heap size, a path like `helpers::my_helper` works as well |
 | `#[get_size(ignore(A, B))]` | Struct or enum | Drops the [`GetSize`] bound on the listed generic types |
 
 The three field attributes work on the fields of structs, of tuple structs and of enum variants alike.
@@ -151,8 +151,9 @@ let shared_data = Arc::new(Vec::with_capacity(1024));
 let primary = PrimaryStore { id: 1, shared_data: Arc::clone(&shared_data) };
 let secondary = SecondaryStore { id: 2, shared_data };
 
-// The `Arc` also stores the `Vec`'s stack data on the heap.
-assert_eq!(primary.get_heap_size(), Vec::<u8>::get_stack_size() + 1024);
+// The `Arc` also stores its two reference counters and the `Vec`'s stack data on the heap.
+let counters = 2 * size_of::<usize>();
+assert_eq!(primary.get_heap_size(), counters + Vec::<u8>::get_stack_size() + 1024);
 assert_eq!(secondary.get_heap_size(), 0);
 ```
 
@@ -209,7 +210,7 @@ assert_eq!(data.get_heap_size(), 1024);
 
 ## Using a helper function
 
-If the heap size of an external type can be derived from its public API, `size_fn` names a function to call. Unlike in other crates the function name is given directly, not as a string. This is particularly useful for a helper which is generic over a trait, and covers several types at once.
+If the heap size of an external type can be derived from its public API, `size_fn` names a function to call. Unlike in other crates the function is given directly as a name or a path like `helpers::my_helper`, not as a string. This is particularly useful for a helper which is generic over a trait, and covers several types at once.
 
 Alternatively, wrap the type in a newtype and implement [`GetSize`] for that.
 
@@ -275,6 +276,31 @@ assert_eq!(data.get_heap_size(), 5 + 100 + 50);
 # Errors
 
 The macro reports a compile error when it is used on a union, or when conflicting attributes such as `size` and `ignore` are combined on the same field. A field whose type does not implement [`GetSize`] and which is not covered by an attribute also fails to compile.
+
+The field attributes are rejected on a struct, an enum or a variant, where they would have no effect:
+
+```rust,compile_fail
+use get_size2::GetSize;
+
+#[derive(GetSize)]
+#[get_size(ignore)] // error: only `ignore(...)` with a list of generic parameters is supported here
+struct Wrapper {
+    value: String,
+}
+```
+
+A name listed in a struct or enum level `ignore` has to be one of the generic parameters, so a typo does not go unnoticed:
+
+```rust,compile_fail
+use get_size2::GetSize;
+
+#[derive(GetSize)]
+#[get_size(ignore(U))] // error: `U` is not a generic type parameter of `Wrapper`
+struct Wrapper<T> {
+    #[get_size(ignore)]
+    value: T,
+}
+```
 
 [`GetSize`]: https://docs.rs/get-size2/latest/get_size2/trait.GetSize.html
 [`get_heap_size`]: https://docs.rs/get-size2/latest/get_size2/trait.GetSize.html#method.get_heap_size

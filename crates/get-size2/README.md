@@ -12,9 +12,8 @@ Determine the size in bytes an object occupies inside RAM.
 
 ## Usage
 
-```toml
-[dependencies]
-get-size2 = { version = "^0.10", features = ["derive"] }
+```sh
+cargo add get-size2 --features derive
 ```
 
 ```rust
@@ -38,8 +37,8 @@ Only bytes *owned* by a value are counted, so anything merely borrowed through a
 
 `std` is enabled by default and implies `alloc`; disable both for `no_std` targets:
 
-```toml
-get-size2 = { version = "^0.10", default-features = false, features = ["alloc", "derive"] }
+```sh
+cargo add get-size2 --no-default-features --features alloc,derive
 ```
 
 | Feature | Description |

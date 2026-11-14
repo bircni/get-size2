@@ -6,6 +6,7 @@ use alloc::string::String;
 #[cfg(target_has_atomic = "ptr")]
 use alloc::sync::Arc;
 
+use crate::impls::layout::size_with_header;
 use crate::{GetSize, GetSizeTracker};
 
 impl GetSize for String {
@@ -32,7 +33,8 @@ impl GetSize for Rc<str> {
             return (0, tracker);
         }
 
-        (self.len(), tracker)
+        // The reference counters are stored in front of the string data.
+        (size_with_header::<[usize; 2], str>(self), tracker)
     }
 }
 
@@ -43,6 +45,7 @@ impl GetSize for Arc<str> {
             return (0, tracker);
         }
 
-        (self.len(), tracker)
+        // The reference counters are stored in front of the string data.
+        (size_with_header::<[usize; 2], str>(self), tracker)
     }
 }

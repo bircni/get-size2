@@ -7,3 +7,6 @@ mod feature;
 mod alloc_impls;
 #[cfg(feature = "std")]
 mod std_impls;
+// Only the heap allocating tiers and integrations have a layout to estimate.
+#[cfg(any(feature = "alloc", feature = "indexmap", feature = "ordermap"))]
+mod layout;
