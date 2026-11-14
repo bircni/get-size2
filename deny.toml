@@ -1,3 +1,18 @@
+[advisories]
+version = 2
+yanked = "deny"
+
+[bans]
+# Optional integrations pull in their own dependency trees, so duplicates are only reported.
+multiple-versions = "warn"
+wildcards = "deny"
+# The crate depends on itself by path to enable every feature for its tests.
+allow-wildcard-paths = true
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+
 [licenses]
 version = 2
 confidence-threshold = 0.93
