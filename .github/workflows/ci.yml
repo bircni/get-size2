@@ -9,14 +9,21 @@ on:
   pull_request:
     branches:
       - main
+    # `edited` reruns the breaking change check once the title gains or loses its `!` marker.
+    types: [opened, synchronize, reopened, edited]
+  # New advisories and toolchain releases show up without anyone pushing, so everything also runs
+  # once a week.
+  schedule:
+    - cron: "17 5 * * 1"
 
 # The jobs only read the repository, so the token does not need more than that.
 permissions:
   contents: read
 
-# A newer push to a pull request supersedes the runs of the previous one.
+# A newer push to a pull request supersedes the runs of the previous one. Every other run gets a
+# group of its own, so runs on `main`, of tags and of the schedule are never cancelled or dropped.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
@@ -24,13 +31,17 @@ jobs:
     name: Typos
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
       - uses: crate-ci/typos@276087d9a4f06398b3e04825487805e2d7375888 # v1.52.2
 
   cargo-machete:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
       - name: Machete
         uses: bnjbvr/cargo-machete@a84eadc0a20e522e37a502609e97a7ce30c998ed # v0.10.0
 
@@ -38,9 +49,11 @@ jobs:
     name: cargo-deny
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
       # Checks the advisories, bans, licenses and sources configured in `deny.toml`.
-      - uses: EmbarkStudios/cargo-deny-action@v2
+      - uses: EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25 # v2.1.1
 
   build:
     name: Build & Test (${{ matrix.name }})
@@ -74,21 +87,25 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
 
       # Installs the Rust target plus a cross linker and a QEMU runner, so
       # `cargo test --target` both builds and *executes* the emulated 32-bit
       # binaries. A no-op wrapper for the native host target.
       - name: Set up toolchain
         if: matrix.target
-        uses: taiki-e/setup-cross-toolchain-action@v1
+        uses: taiki-e/setup-cross-toolchain-action@12b7ad4acfa95a1476779d6c06699b96ec1691f8 # v1.42.0
         with:
           target: ${{ matrix.target }}
 
+      # The key only names the job. Caches are scoped by branch already, and a pull request falls
+      # back to the cache of its base branch.
       - name: Cache dependencies
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
-          shared-key: ${{ github.ref_name }}-${{ matrix.name }}
+          shared-key: ${{ matrix.name }}
 
       # `shell: bash` keeps the unquoted `$TARGET_FLAG` expansion identical on Windows.
       - name: Debug build
@@ -110,19 +127,23 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
 
       # A bare metal target without `std`, so anything reaching for `std` fails to build.
       - name: Set up toolchain
         run: rustup target add thumbv7m-none-eabi
 
       - name: Install cargo-hack
-        uses: taiki-e/install-action@cargo-hack
+        uses: taiki-e/install-action@4a76afe23f9e08d2d9550fb56e556444e8611d21 # v2.90.4
+        with:
+          tool: cargo-hack
 
       - name: Cache dependencies
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
-          shared-key: ${{ github.ref_name }}-thumbv7m-none-eabi
+          shared-key: thumbv7m-none-eabi
 
       # Builds the crate without any feature and then once per feature, so a newly added feature
       # cannot skip the no_std gate by being left out of `all-features-no-std`. Excluded are the
@@ -139,19 +160,25 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
 
       # Keep in sync with `rust-version` in the workspace `Cargo.toml`.
       - name: Set up toolchain
         run: rustup toolchain install 1.85 --profile minimal
 
       - name: Cache dependencies
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
-          shared-key: ${{ github.ref_name }}-msrv
+          shared-key: msrv
 
       # The declared version covers the crates themselves. The optional integrations are left
       # out, since their dependencies raise their own minimum version independently of us.
+      #
+      # No lockfile is committed, so this builds against the newest `syn`, `quote` and
+      # `attribute-derive`. Should one of them raise its minimum version, this job fails on an
+      # unrelated change. That is intended: it is what users on that toolchain would hit as well.
       - name: Build without default features
         run: cargo +1.85 build -p get-size2 --no-default-features
 
@@ -165,21 +192,104 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
 
       # docs.rs builds with nightly and `--cfg docsrs`, which enables the `doc_cfg` feature.
       - name: Set up toolchain
         run: rustup toolchain install nightly --profile minimal
 
       - name: Cache dependencies
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
-          shared-key: ${{ github.ref_name }}-docs
+          shared-key: docs
 
       - name: Build documentation
         env:
           RUSTDOCFLAGS: -D warnings --cfg docsrs
         run: cargo +nightly doc --all-features --no-deps
+
+  semver:
+    name: Breaking Change
+    # Compares against the base of a pull request, so there is nothing to do for other events.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    needs: [typos, cargo-machete]
+
+    steps:
+      # The baseline is built from the base commit, which a shallow clone does not contain.
+      - name: Checkout code
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install cargo-semver-checks
+        uses: taiki-e/install-action@4a76afe23f9e08d2d9550fb56e556444e8611d21 # v2.90.4
+        with:
+          tool: cargo-semver-checks
+
+      - name: Cache dependencies
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          shared-key: semver
+
+      # Decides whether the pull request breaks the public API of `get-size2` compared to its
+      # base, with every feature enabled. A breaking pull request has to say so with the `!` of a
+      # conventional commit title (`feat!: ...`), which is what the changelog is generated from.
+      #
+      # Limits: only the API is compared. A change of behavior, like different reported sizes,
+      # goes unnoticed, as do some API changes the tool has no lint for (for example a relaxed
+      # bound on a trait method). The derive macro is not covered either, since a proc-macro
+      # crate has no library API to compare. A passing job is therefore no proof of compatibility.
+      #
+      # The title and the base commit are passed through the environment, never interpolated
+      # into the script, since the title is written by the author of the pull request.
+      - name: Compare the public API with the base branch
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          status=0
+          cargo semver-checks -p get-size2 --all-features --release-type minor \
+            --baseline-rev "$BASE_SHA" || status=$?
+
+          marked=false
+          if [[ "$PR_TITLE" =~ ^[a-zA-Z]+(\([^\)]*\))?!: ]]; then
+            marked=true
+          fi
+
+          # 0: compatible, 100: at least one breaking change, anything else: the tool itself failed.
+          case "$status" in
+            0)
+              verdict="No breaking API change detected."
+              result=0
+              ;;
+            100)
+              if [[ "$marked" == true ]]; then
+                verdict="Breaking API change detected, and the title marks it as breaking."
+                result=0
+              else
+                verdict="Breaking API change detected, but the title does not mark it. Use a title like \`feat!: ...\`."
+                result=1
+              fi
+              ;;
+            *)
+              verdict="cargo-semver-checks failed with exit code $status, so there is no verdict. See the log."
+              result=1
+              ;;
+          esac
+
+          echo "### Breaking change check" >> "$GITHUB_STEP_SUMMARY"
+          echo "$verdict" >> "$GITHUB_STEP_SUMMARY"
+          if [[ "$result" -ne 0 ]]; then
+            echo "::error::$verdict"
+          else
+            echo "$verdict"
+          fi
+          exit "$result"
 
   check:
     name: Lint
@@ -188,12 +298,14 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
 
       - name: Cache dependencies
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
-          shared-key: ${{ github.ref_name }}-x86_64-unknown-linux-gnu
+          shared-key: lint
 
       - name: Format code
         run: cargo fmt --all -- --check
@@ -208,22 +320,25 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
 
       - name: Cache dependencies
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
-          shared-key: ${{ github.ref_name }}
+          shared-key: tarpaulin
 
       - name: Install cargo-tarpaulin
-        uses: taiki-e/install-action@cargo-tarpaulin
+        uses: taiki-e/install-action@4a76afe23f9e08d2d9550fb56e556444e8611d21 # v2.90.4
+        with:
+          tool: cargo-tarpaulin
 
       - name: Verify coverage threshold
         run: >
           cargo tarpaulin
           --package get-size2
           --all-features
-          --exclude-files 'crates/get-size2/examples/*' 'crates/get-size2/src/tests/*'
           --fail-under 90
 
   publish-check:
@@ -231,10 +346,12 @@ jobs:
     runs-on: ubuntu-latest
     needs: [typos, cargo-machete]
     steps:
-      - uses: actions/checkout@v6
-      - uses: Swatinem/rust-cache@v2
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
-          shared-key: ${{ github.ref_name }}
+          persist-credentials: false
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          shared-key: publish
       - run: cargo fetch
       - name: cargo publish get-size2
         run: cargo publish --dry-run -p get-size2

@@ -6,7 +6,7 @@ yanked = "deny"
 # Optional integrations pull in their own dependency trees, so duplicates are only reported.
 multiple-versions = "warn"
 wildcards = "deny"
-# The crate depends on itself by path to enable every feature for its tests.
+# `get-size-derive2` depends on `get-size2` by path, without a version, for its doctests.
 allow-wildcard-paths = true
 
 [sources]

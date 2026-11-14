@@ -9,3 +9,7 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    # Some of the pinned actions release several times a week, so all bumps arrive as one PR.
+    groups:
+      actions:
+        patterns: ["*"]
