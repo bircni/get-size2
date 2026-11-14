@@ -812,9 +812,14 @@ fn derive_fieldless_types_with_generics() {
     struct Marker<const N: usize>;
 
     #[derive(GetSize)]
-    #[expect(
+    // Only newer clippy versions flag this enum, so the lint cannot be expected.
+    #[allow(
         clippy::empty_enums,
         reason = "the derive macro has to support enums without variants"
+    )]
+    #[expect(
+        clippy::allow_attributes,
+        reason = "the lint only fires on newer clippy versions"
     )]
     enum Never<const N: usize> {}
 
