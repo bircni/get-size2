@@ -849,7 +849,7 @@ fn derive_enum_fields_named_like_macro_internals() {
 }
 
 mod size_helpers {
-    pub const fn twice<T>(value: &super::Vec<T>) -> usize {
+    pub fn twice<T>(value: &super::Vec<T>) -> usize {
         value.capacity() * size_of::<T>() * 2
     }
 }

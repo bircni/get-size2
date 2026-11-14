@@ -54,6 +54,10 @@ Implementations for third party types are available behind the `arcstr`, `bytes`
 
 The full guide is on [docs.rs](https://docs.rs/get-size2): the ownership model and its pitfalls, tracking shared ownership, `no_std` support, deriving and implementing the trait, and what the reported sizes do and do not include. The derive attributes are documented in [`get-size-derive2`](https://docs.rs/get-size-derive2).
 
+## Minimum supported Rust version
+
+The crate itself and the `derive` feature build with Rust 1.85. The optional integrations follow the requirements of the crates they integrate, which may be newer, currently up to Rust 1.90 for `roaring`.
+
 ## License
 
 This library is licensed under the [MIT license](http://opensource.org/licenses/MIT).
