@@ -186,9 +186,9 @@ This crate is `#![no_std]`. Which standard library implementations are available
 
 | Feature | Implemented types |
 | ------- | ----------------- |
-| _(none)_ | [`core`] types, like the primitives, [`Option`], [`Result`], ranges, tuples, arrays, references and raw pointers |
-| `alloc` | [`alloc`](https://doc.rust-lang.org/alloc/) types, like [`Vec`](alloc::vec::Vec), [`String`](alloc::string::String), [`Box`](alloc::boxed::Box), `Rc` and `Arc` |
-| `std` | Types only provided by [`std`], like [`HashMap`](std::collections::HashMap), [`PathBuf`](std::path::PathBuf) or `Mutex` |
+| _(none)_ | [`core`] types, like the primitives, [`Option`], [`Result`], ranges, tuples, arrays, references, raw pointers, `NonNull`, cells (`Cell` of a `Copy` type, `OnceCell`, `RefCell`), wrappers (`Wrapping`, `Saturating`, `Reverse`, `ManuallyDrop`, `Bound`, `Pin` of a reference) and the IP and socket addresses of [`core::net`] |
+| `alloc` | [`alloc`](https://doc.rust-lang.org/alloc/) types, like [`Vec`](alloc::vec::Vec), [`String`](alloc::string::String), [`Box`](alloc::boxed::Box), `Rc` and `Arc`, including their weak forms, their pinned forms for sized targets, and `Box<str>`, `Box<[T]>` and `Box<CStr>` |
+| `std` | Types only provided by [`std`], like [`HashMap`](std::collections::HashMap), [`PathBuf`](std::path::PathBuf), `Box<Path>`, `Box<OsStr>` or `Mutex` |
 
 To build for a `no_std` target, disable the default features:
 
@@ -206,8 +206,8 @@ Each of these features implements [`GetSize`] for the types of the respective cr
 | ------- | ----- | ----------- |
 | `arcstr` | `ArcStr`, `Substr` | |
 | `bytes` | `Bytes`, `BytesMut` | |
-| `chrono` | `NaiveDate`, `NaiveTime`, `NaiveDateTime`, `DateTime`, `TimeDelta`, ... | |
-| `chrono-tz` | `TzOffset` | |
+| `chrono` | `NaiveDate`, `NaiveTime`, `NaiveDateTime`, `DateTime`, `TimeDelta`, `Month`, `Weekday`, `Utc`, `FixedOffset` | |
+| `chrono-tz` | `Tz`, `TzOffset` | |
 | `compact-str` | `CompactString` | |
 | `dashmap` | `DashMap`, `DashSet` | yes |
 | `half` | `f16`, `bf16` | |
@@ -215,8 +215,8 @@ Each of these features implements [`GetSize`] for the types of the respective cr
 | `indexmap` | `IndexMap`, `IndexSet` | |
 | `ordermap` | `OrderMap`, `OrderSet` | |
 | `orx-concurrent-vec` | `ConcurrentVec` | |
-| `parking_lot` | `Mutex`, `RwLock`, also as trackers | yes |
-| `portable-atomic` | All `portable_atomic` atomics, including the 128 bit ones | |
+| `parking_lot` | `Mutex`, `FairMutex`, `ReentrantMutex`, `RwLock`; `Mutex` and `RwLock` also as trackers | yes |
+| `portable-atomic` | All `portable_atomic` integer atomics, including the 128 bit ones, `AtomicBool` and `AtomicPtr` | |
 | `roaring` | `RoaringBitmap`, `RoaringTreemap` | |
 | `smallvec` | `SmallVec` | |
 | `thin-vec` | `ThinVec` | |
@@ -235,4 +235,4 @@ The reported sizes are a best effort based on the public API of the measured typ
 - The bookkeeping stored inside an allocation is counted where its layout is known: the reference counters of `Rc` and `Arc`, the links of a `LinkedList` node, and the control bytes and spare buckets of hash tables. The standard library and `indexmap` do not expose the size of their hash tables, so it is estimated from their capacity and the layout of the underlying `hashbrown` table. That is exact for a table which never had an entry removed; removals lower the reported capacity without shrinking the allocation, so the estimate is then too low.
 - Allocator bookkeeping, padding between allocations, the internal node overhead of `BTreeMap` and `BTreeSet` and the shards of a `DashMap` are not counted, so results are usually a lower bound on what the allocator actually reserved. The exceptions are a `Bytes` buffer which is shared or `'static`, and the estimated entry size of `indexmap` and `ordermap` collections.
 - Values behind a raw pointer are not counted, since ownership cannot be determined.
-- A locking type ([`Mutex`](std::sync::Mutex), [`RwLock`](std::sync::RwLock), `RefCell`) is measured by reading its content. A poisoned lock is measured anyway, while an already mutably borrowed `RefCell` is reported as `0` instead of panicking. Measuring a `Mutex` or `RwLock` waits for the lock, so do not measure one the calling thread itself holds.
+- A locking type ([`Mutex`](std::sync::Mutex), [`RwLock`](std::sync::RwLock), `RefCell`) is measured by reading its content. A poisoned lock is measured anyway, while an already mutably borrowed `RefCell` is reported as `0` instead of panicking. Measuring a `Mutex` or `RwLock` waits for the lock, so do not measure one the calling thread itself holds. A `parking_lot::ReentrantMutex` is the exception, since its holder may lock it again. A `ManuallyDrop` is measured as the owner of a live value.

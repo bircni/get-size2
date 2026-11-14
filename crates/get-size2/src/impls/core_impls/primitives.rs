@@ -1,5 +1,6 @@
 use core::convert::Infallible;
 use core::marker::{PhantomData, PhantomPinned};
+use core::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6};
 use core::num::{
     NonZeroI8, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI128, NonZeroIsize, NonZeroU8,
     NonZeroU16, NonZeroU32, NonZeroU64, NonZeroU128, NonZeroUsize,
@@ -82,3 +83,10 @@ impl<T> GetSize for PhantomData<T> {}
 impl GetSize for PhantomPinned {}
 
 impl GetSize for Duration {}
+
+impl GetSize for IpAddr {}
+impl GetSize for Ipv4Addr {}
+impl GetSize for Ipv6Addr {}
+impl GetSize for SocketAddr {}
+impl GetSize for SocketAddrV4 {}
+impl GetSize for SocketAddrV6 {}

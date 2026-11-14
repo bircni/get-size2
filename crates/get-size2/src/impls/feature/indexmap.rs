@@ -5,7 +5,6 @@ impl<K, V, S> GetSize for indexmap::IndexMap<K, V, S>
 where
     K: GetSize,
     V: GetSize,
-    S: core::hash::BuildHasher,
 {
     fn get_heap_size_with_tracker<Tr: GetSizeTracker>(&self, tracker: Tr) -> (usize, Tr) {
         let (size, tracker) = self

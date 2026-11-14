@@ -1,6 +1,7 @@
 use alloc::borrow::{Cow, ToOwned};
 use alloc::boxed::Box;
 use alloc::rc::{Rc, Weak as RcWeak};
+use core::pin::Pin;
 // `Arc` is only provided by `alloc` on targets with pointer sized atomics.
 #[cfg(target_has_atomic = "ptr")]
 use alloc::sync::{Arc, Weak as ArcWeak};
@@ -67,7 +68,7 @@ where
     T: GetSize,
 {
     fn get_heap_size_with_tracker<Tr: GetSizeTracker>(&self, mut tracker: Tr) -> (usize, Tr) {
-        if !tracker.track(Self::as_ptr(self).cast::<()>()) {
+        if !tracker.track(Self::as_ptr(self)) {
             return (0, tracker);
         }
 
@@ -80,7 +81,38 @@ where
     }
 }
 
-impl<T> GetSize for RcWeak<T> {}
+// A weak handle does not keep the value alive, so it does not own it.
+impl<T: ?Sized> GetSize for RcWeak<T> {}
+
+// A pinned owning pointer owns exactly what the pointer itself owns. `Pin` only hands out a
+// reference to the pointee, which is all that is needed to measure it.
+
+impl<T> GetSize for Pin<Box<T>>
+where
+    T: GetSize,
+{
+    fn get_heap_size_with_tracker<Tr: GetSizeTracker>(&self, tracker: Tr) -> (usize, Tr) {
+        T::get_size_with_tracker(self.as_ref().get_ref(), tracker)
+    }
+}
+
+impl<T> GetSize for Pin<Rc<T>>
+where
+    T: GetSize,
+{
+    fn get_heap_size_with_tracker<Tr: GetSizeTracker>(&self, mut tracker: Tr) -> (usize, Tr) {
+        let value = self.as_ref().get_ref();
+
+        // The address of the value is what `Rc::as_ptr` returns, so a pinned and an unpinned
+        // handle to the same allocation are deduplicated against each other.
+        if !tracker.track(core::ptr::from_ref(value)) {
+            return (0, tracker);
+        }
+
+        let (size, tracker) = T::get_heap_size_with_tracker(value, tracker);
+        (size + size_with_header::<Counters, T>(value), tracker)
+    }
+}
 
 #[cfg(target_has_atomic = "ptr")]
 impl<T> GetSize for Arc<T>
@@ -103,7 +135,7 @@ where
     T: GetSize,
 {
     fn get_heap_size_with_tracker<Tr: GetSizeTracker>(&self, mut tracker: Tr) -> (usize, Tr) {
-        if !tracker.track(Self::as_ptr(self).cast::<()>()) {
+        if !tracker.track(Self::as_ptr(self)) {
             return (0, tracker);
         }
 
@@ -117,4 +149,21 @@ where
 }
 
 #[cfg(target_has_atomic = "ptr")]
-impl<T> GetSize for ArcWeak<T> {}
+impl<T: ?Sized> GetSize for ArcWeak<T> {}
+
+#[cfg(target_has_atomic = "ptr")]
+impl<T> GetSize for Pin<Arc<T>>
+where
+    T: GetSize,
+{
+    fn get_heap_size_with_tracker<Tr: GetSizeTracker>(&self, mut tracker: Tr) -> (usize, Tr) {
+        let value = self.as_ref().get_ref();
+
+        if !tracker.track(core::ptr::from_ref(value)) {
+            return (0, tracker);
+        }
+
+        let (size, tracker) = T::get_heap_size_with_tracker(value, tracker);
+        (size + size_with_header::<Counters, T>(value), tracker)
+    }
+}

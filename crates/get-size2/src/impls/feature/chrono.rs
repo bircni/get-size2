@@ -6,6 +6,8 @@ impl GetSize for chrono::NaiveDateTime {}
 impl GetSize for chrono::Utc {}
 impl GetSize for chrono::FixedOffset {}
 impl GetSize for chrono::TimeDelta {}
+impl GetSize for chrono::Month {}
+impl GetSize for chrono::Weekday {}
 
 impl<Tz: chrono::TimeZone> GetSize for chrono::DateTime<Tz>
 where
