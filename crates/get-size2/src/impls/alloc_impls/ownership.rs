@@ -5,7 +5,11 @@ use alloc::rc::{Rc, Weak as RcWeak};
 #[cfg(target_has_atomic = "ptr")]
 use alloc::sync::{Arc, Weak as ArcWeak};
 
+use crate::impls::layout::size_with_header;
 use crate::{GetSize, GetSizeTracker};
+
+// A shared allocation stores the strong and the weak reference counter in front of its value.
+type Counters = [usize; 2];
 
 impl<T> GetSize for Cow<'_, T>
 where
@@ -49,11 +53,12 @@ where
     T: GetSize,
 {
     fn get_heap_size_with_tracker<Tr: GetSizeTracker>(&self, mut tracker: Tr) -> (usize, Tr) {
-        if tracker.track(Self::as_ptr(self)) {
-            T::get_size_with_tracker(&**self, tracker)
-        } else {
-            (0, tracker)
+        if !tracker.track(Self::as_ptr(self)) {
+            return (0, tracker);
         }
+
+        let (size, tracker) = T::get_heap_size_with_tracker(&**self, tracker);
+        (size + size_with_header::<Counters, T>(&**self), tracker)
     }
 }
 
@@ -71,8 +76,7 @@ where
             (size + elem_size, tracker)
         });
 
-        let allocation_size = self.len() * T::get_stack_size();
-        (size + allocation_size, tracker)
+        (size + size_with_header::<Counters, [T]>(&**self), tracker)
     }
 }
 
@@ -84,11 +88,12 @@ where
     T: GetSize,
 {
     fn get_heap_size_with_tracker<Tr: GetSizeTracker>(&self, mut tracker: Tr) -> (usize, Tr) {
-        if tracker.track(Self::as_ptr(self)) {
-            T::get_size_with_tracker(&**self, tracker)
-        } else {
-            (0, tracker)
+        if !tracker.track(Self::as_ptr(self)) {
+            return (0, tracker);
         }
+
+        let (size, tracker) = T::get_heap_size_with_tracker(&**self, tracker);
+        (size + size_with_header::<Counters, T>(&**self), tracker)
     }
 }
 
@@ -107,8 +112,7 @@ where
             (size + elem_size, tracker)
         });
 
-        let allocation_size = self.len() * T::get_stack_size();
-        (size + allocation_size, tracker)
+        (size + size_with_header::<Counters, [T]>(&**self), tracker)
     }
 }
 

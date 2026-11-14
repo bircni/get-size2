@@ -1,6 +1,7 @@
 use alloc::collections::{BTreeMap, BTreeSet, BinaryHeap, LinkedList, VecDeque};
 use alloc::vec::Vec;
 
+use crate::impls::layout::size_with_header;
 use crate::{GetSize, GetSizeTracker};
 
 macro_rules! impl_size_set {
@@ -43,9 +44,22 @@ macro_rules! impl_size_set_no_capacity {
 
 impl_size_set_no_capacity!(BTreeSet);
 impl_size_set!(BinaryHeap);
-impl_size_set_no_capacity!(LinkedList);
 impl_size_set!(VecDeque);
 impl_size_set!(Vec);
+
+impl<T> GetSize for LinkedList<T>
+where
+    T: GetSize,
+{
+    fn get_heap_size_with_tracker<Tr: GetSizeTracker>(&self, tracker: Tr) -> (usize, Tr) {
+        self.iter().fold((0, tracker), |(size, tracker), elem| {
+            let (elem_size, tracker) = T::get_heap_size_with_tracker(elem, tracker);
+            // Every element lives in its own node, next to the links to both of its neighbors.
+            let node_size = size_with_header::<[usize; 2], T>(elem);
+            (size + elem_size + node_size, tracker)
+        })
+    }
+}
 
 impl<K, V> GetSize for BTreeMap<K, V>
 where

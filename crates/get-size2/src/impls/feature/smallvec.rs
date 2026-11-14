@@ -10,7 +10,9 @@ where
             (size + elem_size, tracker)
         });
 
-        if self.len() > self.inline_size() {
+        // A vector which spilled to the heap stays there, even once it shrinks below its inline
+        // size again.
+        if self.spilled() {
             size += self.capacity() * <A::Item>::get_stack_size();
         }
 

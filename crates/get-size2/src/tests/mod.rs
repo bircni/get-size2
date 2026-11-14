@@ -21,6 +21,14 @@ use get_size2::*;
 
 mod feature;
 
+/// The strong and the weak reference counter stored in front of the value of an `Rc`/`Arc`.
+const RC_HEADER: usize = 2 * size_of::<usize>();
+
+/// The allocation size of an `Rc<[u8]>`/`Rc<str>` holding `len` bytes, including its padding.
+const fn rc_bytes_size(len: usize) -> usize {
+    (RC_HEADER + len).next_multiple_of(align_of::<usize>())
+}
+
 #[derive(GetSize)]
 pub struct TestStruct {
     value1: String,
@@ -373,8 +381,8 @@ fn derive_enum_variant_attributes() {
 
 #[test]
 fn default_tracker() {
-    // The derive macro cannot know whether the `alloc` feature is active, so it delegates to
-    // `get_size2::default_tracker()`, which must still deduplicate shared ownership.
+    // `get_heap_size` starts a fresh `get_size2::default_tracker()`, which must deduplicate
+    // shared ownership.
     #[derive(GetSize)]
     struct Shared {
         first: Rc<String>,
@@ -387,7 +395,7 @@ fn default_tracker() {
         second: Rc::clone(&shared),
     };
 
-    assert_eq!(value.get_heap_size(), size_of::<String>() + 5);
+    assert_eq!(value.get_heap_size(), RC_HEADER + size_of::<String>() + 5);
 
     let mut tracker = get_size2::default_tracker();
     assert!(tracker.track(Rc::as_ptr(&shared)));
@@ -406,10 +414,10 @@ fn boxed_slice() {
     assert_eq!(boxed.get_heap_size(), size_of::<&u8>() * boxed.len());
 
     let rc = Rc::<[u8]>::from([1u8; 10]);
-    assert_eq!(rc.get_heap_size(), size_of::<u8>() * rc.len());
+    assert_eq!(rc.get_heap_size(), rc_bytes_size(rc.len()));
 
     let arc = Arc::<[u8]>::from([1u8; 10]);
-    assert_eq!(arc.get_heap_size(), size_of::<u8>() * arc.len());
+    assert_eq!(arc.get_heap_size(), rc_bytes_size(arc.len()));
 
     let rc_slice = Rc::<[String]>::from([String::from("hello"), String::from("world")]);
     let (size, _) = (Rc::clone(&rc_slice), Rc::clone(&rc_slice))
@@ -428,14 +436,14 @@ fn boxed_str() {
     assert_eq!(boxed.get_heap_size(), size_of::<u8>() * boxed.len());
 
     let rc: Rc<str> = "a".to_owned().into();
-    assert_eq!(rc.get_heap_size(), size_of::<u8>() * boxed.len());
+    assert_eq!(rc.get_heap_size(), rc_bytes_size(rc.len()));
 
     let (size, _) =
         (Rc::clone(&rc), Rc::clone(&rc)).get_heap_size_with_tracker(StandardTracker::new());
     assert_eq!(size, rc.get_heap_size());
 
     let arc: Arc<str> = "a".to_owned().into();
-    assert_eq!(arc.get_heap_size(), size_of::<u8>() * boxed.len());
+    assert_eq!(arc.get_heap_size(), rc_bytes_size(arc.len()));
 
     let (size, _) =
         (Arc::clone(&arc), Arc::clone(&arc)).get_heap_size_with_tracker(StandardTracker::new());
@@ -636,7 +644,7 @@ fn covers_ownership_remaining_branches() {
     let arc = Arc::new(String::from("arc"));
     let pair = (Arc::clone(&arc), Arc::clone(&arc));
     let (tracked_size, _) = pair.get_heap_size_with_tracker(StandardTracker::new());
-    assert_eq!(tracked_size, arc.as_ref().get_size());
+    assert_eq!(tracked_size, RC_HEADER + arc.as_ref().get_size());
 
     let none_value: Option<String> = None;
     assert_eq!(none_value.get_heap_size(), 0);
@@ -795,4 +803,129 @@ fn references_to_unsized_targets() {
 
     let raw: *const [u8] = &raw const b"raw"[..];
     assert_eq!(raw.get_heap_size(), 0);
+}
+
+#[test]
+fn derive_fieldless_types_with_generics() {
+    // Regression test: the generics were dropped from the generated implementation.
+    #[derive(GetSize)]
+    struct Marker<const N: usize>;
+
+    #[derive(GetSize)]
+    // Only newer clippy versions flag this enum, so the lint cannot be expected.
+    #[allow(
+        clippy::empty_enums,
+        reason = "the derive macro has to support enums without variants"
+    )]
+    #[expect(
+        clippy::allow_attributes,
+        reason = "the lint only fires on newer clippy versions"
+    )]
+    enum Never<const N: usize> {}
+
+    assert_eq!(Marker::<3>.get_heap_size(), 0);
+    assert_eq!(Never::<3>::get_stack_size(), 0);
+}
+
+#[test]
+fn derive_enum_fields_named_like_macro_internals() {
+    // Regression test: fields bound by the variant pattern shadowed the locals of the macro.
+    #[derive(GetSize)]
+    enum Shadowing {
+        Named {
+            tracker: String,
+            total: String,
+            total_add: u32,
+        },
+    }
+
+    let value = Shadowing::Named {
+        tracker: String::from("tracker"),
+        total: String::from("total"),
+        total_add: 1,
+    };
+
+    assert_eq!(value.get_heap_size(), "tracker".len() + "total".len());
+}
+
+mod size_helpers {
+    pub const fn twice<T>(value: &super::Vec<T>) -> usize {
+        value.capacity() * size_of::<T>() * 2
+    }
+}
+
+#[test]
+fn derive_size_fn_accepts_paths() {
+    // Regression test: `size_fn` only accepted a bare identifier.
+    #[derive(GetSize)]
+    struct Struct {
+        #[get_size(size_fn = size_helpers::twice)]
+        value: Vec<u8>,
+    }
+
+    #[derive(GetSize)]
+    enum Enum {
+        Tuple(#[get_size(size_fn = size_helpers::twice::<u8>)] Vec<u8>),
+    }
+
+    assert_eq!(
+        Struct {
+            value: Vec::with_capacity(8)
+        }
+        .get_heap_size(),
+        16
+    );
+    assert_eq!(Enum::Tuple(Vec::with_capacity(8)).get_heap_size(), 16);
+}
+
+#[test]
+fn shared_ownership_is_deduplicated_without_derive() {
+    // Regression test: only derived types tracked shared ownership by default, so the same data
+    // reported a different size depending on whether a derived type wrapped it.
+    #[derive(GetSize)]
+    struct Wrapper(Vec<Arc<Vec<u8>>>);
+
+    let shared = Arc::new(vec![0u8; 1000]);
+    let handles = vec![Arc::clone(&shared), Arc::clone(&shared), shared];
+
+    let once = handles.capacity() * size_of::<Arc<Vec<u8>>>()
+        + RC_HEADER
+        + size_of::<Vec<u8>>()
+        + handles[0].capacity();
+
+    assert_eq!(handles.get_heap_size(), once);
+    assert_eq!(Wrapper(handles.clone()).get_heap_size(), once);
+
+    // Every handle can still be counted on request.
+    let (untracked, _) = handles.get_heap_size_with_tracker(NoTracker::new(true));
+    assert!(untracked > once);
+}
+
+#[test]
+fn shared_allocations_include_their_counters() {
+    assert_eq!(Rc::new(1u64).get_heap_size(), RC_HEADER + size_of::<u64>());
+    assert_eq!(Arc::new(1u64).get_heap_size(), RC_HEADER + size_of::<u64>());
+
+    // The value is padded up to the alignment of the counters.
+    assert_eq!(
+        Rc::new(1u8).get_heap_size(),
+        RC_HEADER + align_of::<usize>()
+    );
+}
+
+#[test]
+fn linked_list_includes_its_links() {
+    let list: LinkedList<u64> = (0..10).collect();
+    assert_eq!(
+        list.get_heap_size(),
+        10 * (2 * size_of::<usize>() + size_of::<u64>())
+    );
+}
+
+#[test]
+fn os_string_reports_capacity() {
+    // Regression test: the length was reported instead of the allocated capacity.
+    let value = OsString::with_capacity(100);
+    assert_eq!(value.get_heap_size(), value.capacity());
+    assert!(value.get_heap_size() >= 100);
 }
