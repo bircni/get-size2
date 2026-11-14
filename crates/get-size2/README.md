@@ -56,7 +56,7 @@ The full guide is on [docs.rs](https://docs.rs/get-size2): the ownership model a
 
 ## Minimum supported Rust version
 
-The crate itself and the `derive` feature build with Rust 1.85. The optional integrations follow the requirements of the crates they integrate, which may be newer, currently up to Rust 1.90 for `roaring`.
+The crate itself and the `derive` feature build with Rust 1.85. The optional integrations follow the requirements of the crates they integrate, which are often newer; `cargo` reports the version a feature needs.
 
 ## License
 
