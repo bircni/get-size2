@@ -29,7 +29,7 @@ hashbrown = { version = "0.17", default-features = false, optional = true }
 indexmap = { version = "2.14", default-features = false, optional = true }
 ordermap = { version = "1.2", default-features = false, optional = true }
 orx-concurrent-vec = { version = "4.1", default-features = false, optional = true }
-parking_lot = { version = "0.12", default-features = false, optional = true }
+parking_lot = { version = "0.13", default-features = false, optional = true }
 portable-atomic = { version = "1", default-features = false, features = [
     "fallback",
 ], optional = true }
