@@ -43,6 +43,10 @@ The crate is `no_std` compatible and ships optional implementations for 18 third
 
 Issues and pull requests are welcome. `cargo test --all --all-features`, `cargo clippy --all-targets --all-features -- -D warnings` and `cargo fmt --all` should pass; CI additionally builds a 32-bit and a bare metal `no_std` target.
 
+## Minimum supported Rust version
+
+The crate itself and the `derive` feature build with Rust 1.85. The optional integrations follow the requirements of the crates they integrate, which may be newer, currently up to Rust 1.90 for `roaring`.
+
 ## License
 
 This project is licensed under the [MIT license](http://opensource.org/licenses/MIT).
