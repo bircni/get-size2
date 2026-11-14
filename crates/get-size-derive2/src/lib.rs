@@ -239,15 +239,19 @@ fn add_trait_bounds(mut generics: syn::Generics, ignored: &[syn::Ident]) -> syn:
 #[doc = include_str!("./derive.md")]
 #[proc_macro_derive(GetSize, attributes(get_size))]
 pub fn derive_get_size(input: TokenStream) -> TokenStream {
-    match derive_get_size_impl(input) {
+    match expand(input.into()) {
         Ok(tokens) => tokens.into(),
         Err(err) => err.to_compile_error().into(),
     }
 }
 
-fn derive_get_size_impl(input: TokenStream) -> syn::Result<TokenStream2> {
+/// Generates the `GetSize` implementation for the type definition in `input`.
+///
+/// Works on `proc_macro2` tokens, so it can be called from the unit tests, where the compiler's
+/// own token types are not available.
+fn expand(input: TokenStream2) -> syn::Result<TokenStream2> {
     // Construct a representation of Rust code as a syntax tree that we can manipulate.
-    let ast: syn::DeriveInput = syn::parse(input)?;
+    let ast: syn::DeriveInput = syn::parse2(input)?;
 
     // Traverse the parsed data to generate the body measuring the fields. Types without any
     // field own no heap memory, so the default implementation of the trait is already correct.
@@ -306,4 +310,182 @@ fn derive_get_size_impl(input: TokenStream) -> syn::Result<TokenStream2> {
             #method
         }
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use quote::quote;
+
+    use super::{TokenStream2, expand};
+
+    /// The message of the compile error `input` is rejected with.
+    fn error(input: TokenStream2) -> String {
+        match expand(input) {
+            Ok(tokens) => panic!("expected an error, but got: {tokens}"),
+            Err(err) => err.to_string(),
+        }
+    }
+
+    /// The generated implementation, with all whitespace removed to be independent of how
+    /// tokens are printed.
+    fn expanded(input: TokenStream2) -> String {
+        match expand(input) {
+            Ok(tokens) => tokens.to_string().split_whitespace().collect(),
+            Err(err) => panic!("expected an implementation, but got the error: {err}"),
+        }
+    }
+
+    const MISPLACED: &str = "only `ignore(...)` with a list of generic parameters is supported \
+                             here, `ignore`, `size` and `size_fn` belong on a field";
+
+    #[test]
+    fn rejects_field_attributes_on_containers() {
+        for attribute in [
+            quote! { ignore },
+            quote! { size = 5 },
+            quote! { size_fn = helper },
+            quote! { bogus },
+            quote! { skip(T) },
+            quote! { ignore = "T" },
+        ] {
+            assert_eq!(
+                error(quote! { #[get_size(#attribute)] struct Test<T> { value: T } }),
+                MISPLACED,
+                "struct level `{attribute}`"
+            );
+            assert_eq!(
+                error(quote! { enum Test<T> { #[get_size(#attribute)] Variant(T) } }),
+                MISPLACED,
+                "variant level `{attribute}`"
+            );
+        }
+    }
+
+    #[test]
+    fn rejects_unknown_ignored_generics() {
+        assert_eq!(
+            error(quote! { #[get_size(ignore(U))] struct Test<T> { value: T } }),
+            "`U` is not a generic type parameter of `Test`"
+        );
+        assert_eq!(
+            error(quote! { #[get_size(ignore(T))] struct Test<'T> { value: &'T str } }),
+            "`T` is not a generic type parameter of `Test`"
+        );
+        assert_eq!(
+            error(quote! { enum Test<T> { #[get_size(ignore(U))] Variant(T) } }),
+            "`U` is not a generic type parameter of `Test`"
+        );
+    }
+
+    #[test]
+    fn rejects_unions() {
+        assert_eq!(
+            error(quote! { union Test { value: u8 } }),
+            "Deriving GetSize for unions is currently not supported."
+        );
+    }
+
+    #[test]
+    fn rejects_conflicting_and_malformed_field_attributes() {
+        for attribute in [
+            quote! { size = 1, ignore },
+            quote! { size = 1, size_fn = helper },
+            quote! { size_fn = helper, ignore },
+            quote! { bogus },
+            quote! { size = "one" },
+            quote! { ignore(T) },
+        ] {
+            let message = error(quote! { struct Test { #[get_size(#attribute)] value: u8 } });
+            assert!(!message.is_empty(), "field level `{attribute}`");
+        }
+
+        assert_eq!(
+            error(quote! { struct Test { #[get_size(size_fn = helper())] value: u8 } }),
+            "`size_fn` expects the name of or the path to a function"
+        );
+    }
+
+    #[test]
+    fn ignored_generics_receive_no_bound() {
+        let implementation = expanded(quote! {
+            #[get_size(ignore(B, N))]
+            struct Test<A, B, const N: usize> {
+                first: A,
+                #[get_size(ignore)]
+                second: [B; N],
+            }
+        });
+
+        assert!(
+            implementation.starts_with(
+                "impl<A:::get_size2::GetSize,B,constN:usize>::get_size2::GetSizeforTest<A,B,N>{"
+            ),
+            "{implementation}"
+        );
+        assert!(implementation.contains("&self.first"), "{implementation}");
+        assert!(!implementation.contains("&self.second"), "{implementation}");
+    }
+
+    #[test]
+    fn fieldless_types_keep_their_generics() {
+        assert_eq!(
+            expanded(quote! { struct Marker<const N: usize>; }),
+            "impl<constN:usize>::get_size2::GetSizeforMarker<N>{}"
+        );
+        assert_eq!(
+            expanded(quote! { enum Never<T> {} }),
+            "impl<T:::get_size2::GetSize>::get_size2::GetSizeforNever<T>{}"
+        );
+    }
+
+    #[test]
+    fn field_attributes_select_how_a_field_is_measured() {
+        let implementation = expanded(quote! {
+            struct Test {
+                measured: String,
+                #[get_size(size = 7)]
+                fixed: String,
+                #[get_size(size_fn = helpers::len::<String>)]
+                helped: String,
+                #[get_size(ignore)]
+                ignored: String,
+            }
+        });
+
+        assert!(
+            implementation.contains("&self.measured"),
+            "{implementation}"
+        );
+        assert!(implementation.contains("+7usize;"), "{implementation}");
+        assert!(
+            implementation.contains("helpers::len::<String>(&self.helped)"),
+            "{implementation}"
+        );
+        assert!(!implementation.contains("self.fixed"), "{implementation}");
+        assert!(!implementation.contains("self.ignored"), "{implementation}");
+    }
+
+    #[test]
+    fn variants_only_bind_the_fields_they_read() {
+        let implementation = expanded(quote! {
+            enum Test {
+                Unit,
+                Tuple(#[get_size(ignore)] u8, String),
+                Named { tracker: String, #[get_size(size = 3)] fixed: u8 },
+            }
+        });
+
+        assert!(
+            implementation.contains("Self::Unit{..}=>"),
+            "{implementation}"
+        );
+        assert!(
+            implementation.contains("Self::Tuple{1:__get_size_field_1,..}=>"),
+            "{implementation}"
+        );
+        assert!(
+            implementation.contains("Self::Named{tracker:__get_size_field_0,..}=>"),
+            "{implementation}"
+        );
+    }
 }
