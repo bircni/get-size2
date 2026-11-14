@@ -14,6 +14,27 @@ where
     }
 }
 
+impl<T> GetSize for parking_lot::FairMutex<T>
+where
+    T: GetSize,
+{
+    fn get_heap_size_with_tracker<Tr: GetSizeTracker>(&self, tracker: Tr) -> (usize, Tr) {
+        let guard = self.lock();
+        T::get_heap_size_with_tracker(&*guard, tracker)
+    }
+}
+
+impl<T> GetSize for parking_lot::ReentrantMutex<T>
+where
+    T: GetSize,
+{
+    fn get_heap_size_with_tracker<Tr: GetSizeTracker>(&self, tracker: Tr) -> (usize, Tr) {
+        // The thread already holding the lock may acquire it again.
+        let guard = self.lock();
+        T::get_heap_size_with_tracker(&*guard, tracker)
+    }
+}
+
 impl<T> GetSize for parking_lot::RwLock<T>
 where
     T: GetSize,
@@ -30,26 +51,26 @@ where
 // `Arc<Mutex<Tracker>>` / `Arc<RwLock<Tracker>>` patterns.
 
 impl<T: GetSizeTracker> GetSizeTracker for parking_lot::Mutex<T> {
-    fn track<A>(&mut self, addr: *const A) -> bool {
+    fn track<A: ?Sized>(&mut self, addr: *const A) -> bool {
         GetSizeTracker::track(self.get_mut(), addr)
     }
 }
 
 impl<T: GetSizeTracker> GetSizeTracker for parking_lot::RwLock<T> {
-    fn track<A>(&mut self, addr: *const A) -> bool {
+    fn track<A: ?Sized>(&mut self, addr: *const A) -> bool {
         GetSizeTracker::track(self.get_mut(), addr)
     }
 }
 
 impl<T: GetSizeTracker> GetSizeTracker for std::sync::Arc<parking_lot::Mutex<T>> {
-    fn track<A>(&mut self, addr: *const A) -> bool {
+    fn track<A: ?Sized>(&mut self, addr: *const A) -> bool {
         let mut guard = self.lock();
         GetSizeTracker::track(&mut *guard, addr)
     }
 }
 
 impl<T: GetSizeTracker> GetSizeTracker for std::sync::Arc<parking_lot::RwLock<T>> {
-    fn track<A>(&mut self, addr: *const A) -> bool {
+    fn track<A: ?Sized>(&mut self, addr: *const A) -> bool {
         let mut guard = self.write();
         GetSizeTracker::track(&mut *guard, addr)
     }

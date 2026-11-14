@@ -1,6 +1,7 @@
-use std::ffi::OsString;
+use std::boxed::Box;
+use std::ffi::{OsStr, OsString};
 use std::io::{BufReader, BufWriter, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::{Instant, SystemTime};
 
 use crate::{GetSize, GetSizeTracker};
@@ -14,6 +15,18 @@ impl GetSize for OsString {
 impl GetSize for PathBuf {
     fn get_heap_size_with_tracker<T: GetSizeTracker>(&self, tracker: T) -> (usize, T) {
         (self.capacity(), tracker)
+    }
+}
+
+impl GetSize for Box<OsStr> {
+    fn get_heap_size_with_tracker<T: GetSizeTracker>(&self, tracker: T) -> (usize, T) {
+        (self.len(), tracker)
+    }
+}
+
+impl GetSize for Box<Path> {
+    fn get_heap_size_with_tracker<T: GetSizeTracker>(&self, tracker: T) -> (usize, T) {
+        (self.as_os_str().len(), tracker)
     }
 }
 

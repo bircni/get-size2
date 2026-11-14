@@ -2,6 +2,7 @@ use alloc::boxed::Box;
 use alloc::ffi::CString;
 use alloc::rc::Rc;
 use alloc::string::String;
+use core::ffi::CStr;
 // `Arc` is only provided by `alloc` on targets with pointer sized atomics.
 #[cfg(target_has_atomic = "ptr")]
 use alloc::sync::Arc;
@@ -21,6 +22,12 @@ impl GetSize for CString {
     }
 }
 
+impl GetSize for Box<CStr> {
+    fn get_heap_size_with_tracker<T: GetSizeTracker>(&self, tracker: T) -> (usize, T) {
+        (self.to_bytes_with_nul().len(), tracker)
+    }
+}
+
 impl GetSize for Box<str> {
     fn get_heap_size_with_tracker<T: GetSizeTracker>(&self, tracker: T) -> (usize, T) {
         (self.len(), tracker)
@@ -29,7 +36,7 @@ impl GetSize for Box<str> {
 
 impl GetSize for Rc<str> {
     fn get_heap_size_with_tracker<T: GetSizeTracker>(&self, mut tracker: T) -> (usize, T) {
-        if !tracker.track(Self::as_ptr(self).cast::<()>()) {
+        if !tracker.track(Self::as_ptr(self)) {
             return (0, tracker);
         }
 
@@ -41,7 +48,7 @@ impl GetSize for Rc<str> {
 #[cfg(target_has_atomic = "ptr")]
 impl GetSize for Arc<str> {
     fn get_heap_size_with_tracker<T: GetSizeTracker>(&self, mut tracker: T) -> (usize, T) {
-        if !tracker.track(Self::as_ptr(self).cast::<()>()) {
+        if !tracker.track(Self::as_ptr(self)) {
             return (0, tracker);
         }
 
