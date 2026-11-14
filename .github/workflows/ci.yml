@@ -127,7 +127,7 @@ jobs:
 
       - name: Test
         shell: bash
-        run: cargo test --all --all-features $TARGET_FLAG
+        run: cargo test --all --all-features --no-fail-fast $TARGET_FLAG
 
   no-std:
     name: Build (no_std)

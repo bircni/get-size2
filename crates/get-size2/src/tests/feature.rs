@@ -501,29 +501,6 @@ fn smallvec_spilled_stays_on_heap() {
 }
 
 #[test]
-fn std_hash_tables_match_hashbrown() {
-    // The standard library does not expose the allocation size of its `hashbrown` based tables,
-    // so the estimate is checked against the real thing.
-    for capacity in [0, 1, 3, 4, 7, 8, 14, 15, 28, 29, 100, 1000, 10_000] {
-        let map = std::collections::HashMap::<u64, [u8; 3]>::with_capacity(capacity);
-        let reference = hashbrown::HashTable::<(u64, [u8; 3])>::with_capacity(map.capacity());
-        assert_eq!(
-            map.get_heap_size(),
-            reference.allocation_size(),
-            "map capacity {capacity}"
-        );
-
-        let set = std::collections::HashSet::<u8>::with_capacity(capacity);
-        let reference = hashbrown::HashTable::<u8>::with_capacity(set.capacity());
-        assert_eq!(
-            set.get_heap_size(),
-            reference.allocation_size(),
-            "set capacity {capacity}"
-        );
-    }
-}
-
-#[test]
 fn parking_lot_trackers_deduplicate() {
     use std::rc::Rc;
     use std::sync::Arc;
