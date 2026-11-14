@@ -19,18 +19,43 @@ pub fn size_with_header<H, T: ?Sized>(value: &T) -> usize {
 }
 
 /// The number of control bytes a `hashbrown` table scans at once, which it also over-allocates
-/// by. `hashbrown` scans 16 bytes with SSE2 and a machine word otherwise.
+/// by. This mirrors how `hashbrown` selects its group implementation: 16 bytes with SSE2 or LSX,
+/// 8 bytes with NEON, and otherwise a `u64` or `u32` depending on the target.
+///
+/// The standard library ships its table precompiled, so on a target whose baseline features
+/// differ from the ones this crate is compiled with the value is off by a few bytes per table.
 #[cfg(any(feature = "std", feature = "indexmap", feature = "ordermap"))]
-const GROUP_WIDTH: usize = if cfg!(all(
-    any(target_arch = "x86", target_arch = "x86_64"),
-    target_feature = "sse2",
-    not(miri),
+const GROUP_WIDTH: usize = if cfg!(miri) {
+    GENERIC_GROUP_WIDTH
+} else if cfg!(any(
+    all(
+        any(target_arch = "x86", target_arch = "x86_64"),
+        target_feature = "sse2",
+    ),
+    all(target_arch = "loongarch64", target_feature = "lsx"),
 )) {
     16
-} else if cfg!(target_arch = "wasm32") {
+} else if cfg!(all(
+    target_arch = "aarch64",
+    target_feature = "neon",
+    target_endian = "little",
+)) {
     8
 } else {
-    size_of::<usize>()
+    GENERIC_GROUP_WIDTH
+};
+
+/// The group width of the portable `hashbrown` implementation.
+#[cfg(any(feature = "std", feature = "indexmap", feature = "ordermap"))]
+const GENERIC_GROUP_WIDTH: usize = if cfg!(any(
+    target_pointer_width = "64",
+    target_arch = "aarch64",
+    target_arch = "x86_64",
+    target_arch = "wasm32",
+)) {
+    8
+} else {
+    4
 };
 
 /// Estimates the allocation of a `hashbrown` based table with room for `capacity` entries.
@@ -38,6 +63,10 @@ const GROUP_WIDTH: usize = if cfg!(all(
 /// The standard library and `indexmap` do not expose the allocation size of their tables, so it
 /// is reconstructed from the layout `hashbrown` is known to use: a power of two number of buckets
 /// filled up to 7/8, followed by one control byte per bucket and one trailing group of them.
+///
+/// The reported capacity is the only available input. It is exact for a table which never had
+/// an entry removed, but removals leave tombstones behind which lower the capacity while the
+/// allocation stays the same, so the result is a lower bound for such a table.
 #[cfg(any(feature = "std", feature = "indexmap", feature = "ordermap"))]
 pub fn hash_table_size(capacity: usize, entry: Layout) -> usize {
     if capacity == 0 {
@@ -59,4 +88,26 @@ pub fn hash_table_size(capacity: usize, entry: Layout) -> usize {
     ctrl_offset
         .saturating_add(buckets)
         .saturating_add(GROUP_WIDTH)
+}
+
+/// An entry of an `indexmap` or `ordermap` collection, which stores the hash next to the key
+/// and the value. Mirrored here since the size of the real type is private.
+#[cfg(any(feature = "indexmap", feature = "ordermap"))]
+#[expect(dead_code, reason = "only the layout of this type is of interest")]
+struct IndexBucket<K, V> {
+    hash: usize,
+    key: K,
+    value: V,
+}
+
+/// Estimates the allocations of an `indexmap` or `ordermap` collection with room for `capacity`
+/// entries. Sets store `()` as their value.
+///
+/// The entries live in a `Vec`, and a separate hash table maps the hashes to their position
+/// inside that `Vec`.
+#[cfg(any(feature = "indexmap", feature = "ordermap"))]
+pub fn index_map_size<K, V>(capacity: usize) -> usize {
+    capacity
+        .saturating_mul(size_of::<IndexBucket<K, V>>())
+        .saturating_add(hash_table_size(capacity, Layout::new::<usize>()))
 }

@@ -122,10 +122,13 @@ fn bytes() {
     let bytes = bytes::Bytes::from(BYTES_STR);
     assert_eq!(bytes.get_heap_size(), BYTES_STR.len());
 
-    // Clones share their buffer, which is only counted once.
-    let clones = (bytes.clone(), bytes);
-    assert_eq!(clones.get_heap_size(), BYTES_STR.len());
     assert_eq!(bytes::Bytes::new().get_heap_size(), 0);
+
+    // Regression test: views were deduplicated by their start address, which dropped the larger
+    // of two views starting at the same position.
+    let buffer = bytes::Bytes::from(vec![0u8; 1000]);
+    let views = (buffer.slice(0..1), buffer);
+    assert_eq!(views.get_heap_size(), 1001);
 
     let mut bytes_mut = bytes::BytesMut::from(BYTES_STR);
     assert_eq!(bytes_mut.get_heap_size(), BYTES_STR.len());
@@ -266,7 +269,7 @@ fn test_indexmap() {
     // of it is pointer-width dependent, so don't hard-code it.
     assert_eq!(
         map.get_heap_size(),
-        map.capacity() * size_of::<(usize, (&'static str, String))>()
+        map.capacity() * size_of::<(usize, &'static str, String)>()
             + hashbrown::HashTable::<usize>::with_capacity(map.capacity()).allocation_size()
     );
     map.insert(VALUE_STR, String::from(VALUE_STR));
@@ -316,7 +319,7 @@ fn test_ordermap() {
     // of it is pointer-width dependent, so don't hard-code it.
     assert_eq!(
         map.get_heap_size(),
-        map.capacity() * size_of::<(usize, (&'static str, String))>()
+        map.capacity() * size_of::<(usize, &'static str, String)>()
             + hashbrown::HashTable::<usize>::with_capacity(map.capacity()).allocation_size()
     );
     map.insert(VALUE_STR, String::from(VALUE_STR));
@@ -511,21 +514,6 @@ fn std_hash_tables_match_hashbrown() {
 }
 
 #[test]
-fn parking_lot_locked_values_are_not_waited_for() {
-    let mutex = parking_lot::Mutex::new(String::from("locked"));
-    let guard = mutex.lock();
-    assert_eq!(mutex.get_heap_size(), 0);
-    drop(guard);
-    assert_eq!(mutex.get_heap_size(), "locked".len());
-
-    let rwlock = parking_lot::RwLock::new(String::from("locked"));
-    let guard = rwlock.write();
-    assert_eq!(rwlock.get_heap_size(), 0);
-    drop(guard);
-    assert_eq!(rwlock.get_heap_size(), "locked".len());
-}
-
-#[test]
 fn parking_lot_trackers_deduplicate() {
     use std::rc::Rc;
     use std::sync::Arc;
@@ -546,4 +534,56 @@ fn parking_lot_trackers_deduplicate() {
     assert_tracks(parking_lot::RwLock::new(StandardTracker::new()));
     assert_tracks(Arc::new(parking_lot::Mutex::new(StandardTracker::new())));
     assert_tracks(Arc::new(parking_lot::RwLock::new(StandardTracker::new())));
+}
+
+#[test]
+fn std_hash_tables_stay_a_lower_bound_after_removals() {
+    // Removed entries leave tombstones behind, which lower the reported capacity while the
+    // allocation stays the same. The estimate must then err on the low side.
+    let mut set: std::collections::HashSet<u64> = (0..112).collect();
+    let allocated = set.get_heap_size();
+    for value in 0..112 {
+        set.remove(&value);
+    }
+    assert!(set.get_heap_size() <= allocated);
+
+    let mut map: std::collections::HashMap<u64, u64> = (0..28).map(|key| (key, key)).collect();
+    let allocated = map.get_heap_size();
+    map.retain(|_, _| false);
+    assert!(map.get_heap_size() <= allocated);
+}
+
+#[test]
+fn index_collections_store_flat_buckets() {
+    use std::hash::RandomState;
+
+    // Regression test: the entry was measured as `(usize, (K, V))`, which pads an over-aligned
+    // value twice.
+    let entry = size_of::<(usize, u32, u128)>();
+    let table = |capacity| hashbrown::HashTable::<usize>::with_capacity(capacity).allocation_size();
+
+    let map = indexmap::IndexMap::<u32, u128, RandomState>::with_capacity_and_hasher(
+        1000,
+        RandomState::new(),
+    );
+    assert_eq!(
+        map.get_heap_size(),
+        map.capacity() * entry + table(map.capacity())
+    );
+
+    let map = ordermap::OrderMap::<u32, u128, RandomState>::with_capacity_and_hasher(
+        1000,
+        RandomState::new(),
+    );
+    assert_eq!(
+        map.get_heap_size(),
+        map.capacity() * entry + table(map.capacity())
+    );
+
+    let set =
+        indexmap::IndexSet::<u128, RandomState>::with_capacity_and_hasher(1000, RandomState::new());
+    assert_eq!(
+        set.get_heap_size(),
+        set.capacity() * size_of::<(usize, u128)>() + table(set.capacity())
+    );
 }

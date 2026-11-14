@@ -6,7 +6,7 @@ Available through the `derive` feature of [`get-size2`](https://docs.rs/get-size
 cargo add get-size2 --features derive
 ```
 
-The generated [`get_heap_size`] implementation calls [`get_heap_size`] on every field and sums up the results, which means every field type must implement [`GetSize`] as well, unless it is handled by one of the [attributes](#attributes) below. Shared ownership is deduplicated, since the generated implementation threads the tracker through all fields.
+The generated implementation measures the heap size of every field and sums up the results, which means every field type must implement [`GetSize`] as well, unless it is handled by one of the [attributes](#attributes) below. Shared ownership is deduplicated, since the generated implementation threads the tracker through all fields.
 
 Unions are not supported and produce a compile error.
 
@@ -277,7 +277,19 @@ assert_eq!(data.get_heap_size(), 5 + 100 + 50);
 
 The macro reports a compile error when it is used on a union, or when conflicting attributes such as `size` and `ignore` are combined on the same field. A field whose type does not implement [`GetSize`] and which is not covered by an attribute also fails to compile.
 
-A name listed in a struct or enum level `ignore` has to be one of the generic type parameters, so a typo does not go unnoticed:
+The field attributes are rejected on a struct, an enum or a variant, where they would have no effect:
+
+```rust,compile_fail
+use get_size2::GetSize;
+
+#[derive(GetSize)]
+#[get_size(ignore)] // error: only `ignore(...)` with a list of generic parameters is supported here
+struct Wrapper {
+    value: String,
+}
+```
+
+A name listed in a struct or enum level `ignore` has to be one of the generic parameters, so a typo does not go unnoticed:
 
 ```rust,compile_fail
 use get_size2::GetSize;

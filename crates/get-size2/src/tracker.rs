@@ -94,9 +94,9 @@ impl AddressHasher {
         let product = (self.0 ^ value).wrapping_mul(Self::MULTIPLIER);
 
         // Allocations are aligned, so the lowest bits of an address are always zero and stay
-        // zero after the multiplication. Folding the well mixed upper half onto the lower half
-        // gives the hash table usable low bits to select a bucket with.
-        self.0 = product ^ (product >> 32);
+        // zero after the multiplication, while its upper bits are mixed best. A hash table
+        // selects the bucket with the low bits of the hash, so the upper bits are rotated down.
+        self.0 = product.rotate_left(26);
     }
 }
 
@@ -184,5 +184,35 @@ impl NoTracker {
 impl GetSizeTracker for NoTracker {
     fn track<A>(&mut self, _addr: *const A) -> bool {
         self.answer
+    }
+}
+
+#[cfg(all(test, feature = "std"))]
+mod tests {
+    use core::hash::Hasher;
+    use std::collections::HashSet;
+
+    use super::AddressHasher;
+
+    fn hash(address: usize) -> u64 {
+        let mut hasher = AddressHasher::default();
+        hasher.write_usize(address);
+        hasher.finish()
+    }
+
+    #[test]
+    fn address_hasher_spreads_aligned_addresses() {
+        // Allocations are aligned, so their addresses only differ above the lowest bits. A hash
+        // table selects the bucket with the low bits of the hash and tags it with the top seven,
+        // so both have to vary for the addresses of neighboring allocations.
+        for stride in [8, 16, 64, 4096] {
+            let hashes: std::vec::Vec<u64> = (0..4096).map(|index| hash(index * stride)).collect();
+
+            let low: HashSet<u64> = hashes.iter().map(|hash| hash & 0xFFF).collect();
+            let top: HashSet<u64> = hashes.iter().map(|hash| hash >> 57).collect();
+
+            assert!(low.len() > 2048, "stride {stride}: {} buckets", low.len());
+            assert_eq!(top.len(), 128, "stride {stride}");
+        }
     }
 }
