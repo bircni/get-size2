@@ -186,9 +186,9 @@ This crate is `#![no_std]`. Which standard library implementations are available
 
 | Feature | Implemented types |
 | ------- | ----------------- |
-| _(none)_ | [`core`] types, like the primitives, [`Option`], [`Result`], ranges, tuples, arrays, references and raw pointers |
-| `alloc` | [`alloc`](https://doc.rust-lang.org/alloc/) types, like [`Vec`](alloc::vec::Vec), [`String`](alloc::string::String), [`Box`](alloc::boxed::Box), `Rc` and `Arc` |
-| `std` | Types only provided by [`std`], like [`HashMap`](std::collections::HashMap), [`PathBuf`](std::path::PathBuf) or `Mutex` |
+| _(none)_ | [`core`] types, like the primitives, [`Option`], [`Result`], ranges, tuples, arrays, references, raw pointers, `NonNull`, cells (`Cell`, `OnceCell`, `RefCell`), wrappers (`Wrapping`, `Saturating`, `Reverse`, `ManuallyDrop`, `Bound`, `Pin` of a reference) and the IP and socket addresses of [`core::net`] |
+| `alloc` | [`alloc`](https://doc.rust-lang.org/alloc/) types, like [`Vec`](alloc::vec::Vec), [`String`](alloc::string::String), [`Box`](alloc::boxed::Box), `Rc` and `Arc`, including their pinned and weak forms and `Box<str>`, `Box<[T]>` and `Box<CStr>` |
+| `std` | Types only provided by [`std`], like [`HashMap`](std::collections::HashMap), [`PathBuf`](std::path::PathBuf), `Box<Path>`, `Box<OsStr>` or `Mutex` |
 
 To build for a `no_std` target, disable the default features:
 
@@ -206,8 +206,8 @@ Each of these features implements [`GetSize`] for the types of the respective cr
 | ------- | ----- | ----------- |
 | `arcstr` | `ArcStr`, `Substr` | |
 | `bytes` | `Bytes`, `BytesMut` | |
-| `chrono` | `NaiveDate`, `NaiveTime`, `NaiveDateTime`, `DateTime`, `TimeDelta`, ... | |
-| `chrono-tz` | `TzOffset` | |
+| `chrono` | `NaiveDate`, `NaiveTime`, `NaiveDateTime`, `DateTime`, `TimeDelta`, `Month`, `Weekday`, `Utc`, `FixedOffset` | |
+| `chrono-tz` | `Tz`, `TzOffset` | |
 | `compact-str` | `CompactString` | |
 | `dashmap` | `DashMap`, `DashSet` | yes |
 | `half` | `f16`, `bf16` | |
@@ -215,8 +215,8 @@ Each of these features implements [`GetSize`] for the types of the respective cr
 | `indexmap` | `IndexMap`, `IndexSet` | |
 | `ordermap` | `OrderMap`, `OrderSet` | |
 | `orx-concurrent-vec` | `ConcurrentVec` | |
-| `parking_lot` | `Mutex`, `RwLock`, also as trackers | yes |
-| `portable-atomic` | All `portable_atomic` atomics, including the 128 bit ones | |
+| `parking_lot` | `Mutex`, `FairMutex`, `ReentrantMutex`, `RwLock`; `Mutex` and `RwLock` also as trackers | yes |
+| `portable-atomic` | All `portable_atomic` integer atomics, including the 128 bit ones, `AtomicBool` and `AtomicPtr` | |
 | `roaring` | `RoaringBitmap`, `RoaringTreemap` | |
 | `smallvec` | `SmallVec` | |
 | `thin-vec` | `ThinVec` | |

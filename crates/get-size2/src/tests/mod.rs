@@ -961,3 +961,161 @@ fn standard_tracker_distinguishes_aligned_addresses() {
     tracker.clear();
     assert!(tracker.track(std::ptr::from_ref(&values[0])));
 }
+
+#[test]
+fn cells() {
+    use std::cell::{Cell, OnceCell};
+
+    let cell = Cell::new(5u64);
+    assert_eq!(cell.get_heap_size(), 0);
+    assert_eq!(cell.get_size(), size_of::<u64>());
+
+    let empty: OnceCell<String> = OnceCell::new();
+    assert_eq!(empty.get_heap_size(), 0);
+
+    let filled = OnceCell::from(String::from("filled"));
+    assert_eq!(filled.get_heap_size(), "filled".len());
+}
+
+#[test]
+fn transparent_wrappers() {
+    use std::cmp::Reverse;
+    use std::mem::ManuallyDrop;
+    use std::num::{Saturating, Wrapping};
+    use std::ops::Bound;
+
+    assert_eq!(Wrapping(5u8).get_heap_size(), 0);
+    assert_eq!(Wrapping(5u8).get_size(), size_of::<u8>());
+    assert_eq!(Saturating(5u32).get_heap_size(), 0);
+    assert_eq!(Reverse(String::from("reverse")).get_heap_size(), 7);
+
+    let manual = ManuallyDrop::new(String::from("manual"));
+    assert_eq!(manual.get_heap_size(), 6);
+    drop(ManuallyDrop::into_inner(manual));
+
+    assert_eq!(Bound::Included(String::from("in")).get_heap_size(), 2);
+    assert_eq!(Bound::Excluded(String::from("out")).get_heap_size(), 3);
+    assert_eq!(Bound::<String>::Unbounded.get_heap_size(), 0);
+}
+
+#[test]
+fn pointers_own_nothing() {
+    use std::ptr::NonNull;
+    use std::sync::atomic::AtomicPtr;
+
+    let mut value = String::from("pointed at");
+
+    let non_null = NonNull::from(&mut value);
+    assert_eq!(non_null.get_heap_size(), 0);
+    assert_eq!(non_null.get_size(), size_of::<usize>());
+
+    // Unsized targets work as well.
+    let slice: NonNull<str> = NonNull::from(value.as_str());
+    assert_eq!(slice.get_heap_size(), 0);
+
+    let atomic = AtomicPtr::new(&raw mut value);
+    assert_eq!(atomic.get_heap_size(), 0);
+}
+
+#[test]
+fn pinned_pointers() {
+    use std::pin::Pin;
+
+    let value = String::from("pinned");
+
+    assert_eq!(GetSize::get_heap_size(&Pin::new(&value)), 0);
+    let mut target = String::from("pinned");
+    assert_eq!(GetSize::get_heap_size(&Pin::new(&mut target)), 0);
+
+    // A pinned owning pointer reports the same as the pointer itself.
+    let boxed = Box::new(value.clone());
+    assert_eq!(
+        Box::pin(value.clone()).get_heap_size(),
+        boxed.get_heap_size()
+    );
+
+    let rc = Rc::new(value.clone());
+    assert_eq!(Rc::pin(value.clone()).get_heap_size(), rc.get_heap_size());
+
+    let arc = Arc::new(value.clone());
+    assert_eq!(Arc::pin(value).get_heap_size(), arc.get_heap_size());
+
+    // Pinned and unpinned handles to one allocation are only counted once.
+    let pinned = Pin::new(Rc::clone(&rc));
+    assert_eq!((Rc::clone(&rc), pinned).get_heap_size(), rc.get_heap_size());
+
+    let pinned = Pin::new(Arc::clone(&arc));
+    assert_eq!(
+        (Arc::clone(&arc), pinned).get_heap_size(),
+        arc.get_heap_size()
+    );
+}
+
+#[test]
+fn network_addresses() {
+    use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6};
+
+    let v4 = Ipv4Addr::LOCALHOST;
+    let v6 = Ipv6Addr::LOCALHOST;
+
+    assert_eq!(v4.get_heap_size(), 0);
+    assert_eq!(v6.get_heap_size(), 0);
+    assert_eq!(IpAddr::V4(v4).get_heap_size(), 0);
+    assert_eq!(SocketAddrV4::new(v4, 80).get_heap_size(), 0);
+    assert_eq!(SocketAddrV6::new(v6, 80, 0, 0).get_heap_size(), 0);
+
+    let socket = SocketAddr::new(IpAddr::V6(v6), 80);
+    assert_eq!(socket.get_heap_size(), 0);
+    assert_eq!(socket.get_size(), size_of::<SocketAddr>());
+}
+
+#[test]
+fn boxed_unsized_strings() {
+    let path: Box<Path> = PathBuf::from("some/path").into_boxed_path();
+    assert_eq!(path.get_heap_size(), "some/path".len());
+
+    let os_str: Box<OsStr> = OsString::from("os string").into_boxed_os_str();
+    assert_eq!(os_str.get_heap_size(), "os string".len());
+
+    let c_str: Box<CStr> = CString::new("c string").unwrap().into_boxed_c_str();
+    // The terminating nul byte is part of the allocation.
+    assert_eq!(c_str.get_heap_size(), "c string".len() + 1);
+}
+
+#[test]
+fn weak_handles_to_unsized_targets() {
+    let rc: Rc<str> = Rc::from("unsized");
+    let weak: RcWeak<str> = Rc::downgrade(&rc);
+    assert_eq!(weak.get_heap_size(), 0);
+
+    let arc: Arc<[u8]> = Arc::from([1u8, 2, 3]);
+    let weak: ArcWeak<[u8]> = Arc::downgrade(&arc);
+    assert_eq!(weak.get_heap_size(), 0);
+}
+
+#[test]
+fn tracker_accepts_unsized_targets() {
+    let text: Rc<str> = Rc::from("unsized");
+    let slice: Rc<[u8]> = Rc::from([1u8, 2, 3]);
+
+    let mut tracker = StandardTracker::new();
+    assert!(tracker.track(Rc::as_ptr(&text)));
+    assert!(!tracker.track(Rc::as_ptr(&text)));
+    assert!(tracker.track(Rc::as_ptr(&slice)));
+
+    // Only the address identifies the object, not the length carried by the pointer.
+    let prefix: *const [u8] = &raw const slice[..1];
+    assert!(!tracker.track(prefix));
+}
+
+#[test]
+fn hash_collections_need_no_hasher_bounds() {
+    // Regression test: the hasher had to implement `BuildHasher` although it is never used.
+    struct NotAHasher;
+
+    let map: HashMap<u64, String, NotAHasher> = HashMap::with_hasher(NotAHasher);
+    assert_eq!(map.get_heap_size(), 0);
+
+    let set: HashSet<u64, NotAHasher> = HashSet::with_hasher(NotAHasher);
+    assert_eq!(set.get_heap_size(), 0);
+}
