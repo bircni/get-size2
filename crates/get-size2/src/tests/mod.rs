@@ -812,6 +812,10 @@ fn derive_fieldless_types_with_generics() {
     struct Marker<const N: usize>;
 
     #[derive(GetSize)]
+    #[expect(
+        clippy::empty_enums,
+        reason = "the derive macro has to support enums without variants"
+    )]
     enum Never<const N: usize> {}
 
     assert_eq!(Marker::<3>.get_heap_size(), 0);

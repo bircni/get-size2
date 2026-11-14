@@ -524,3 +524,26 @@ fn parking_lot_locked_values_are_not_waited_for() {
     drop(guard);
     assert_eq!(rwlock.get_heap_size(), "locked".len());
 }
+
+#[test]
+fn parking_lot_trackers_deduplicate() {
+    use std::rc::Rc;
+    use std::sync::Arc;
+
+    // Every lock flavor has to forward to the tracker it guards.
+    fn assert_tracks<T: GetSizeTracker>(tracker: T) {
+        let shared = Rc::new(String::from("shared"));
+        let pair = (Rc::clone(&shared), Rc::clone(&shared));
+
+        let (size, tracker) = pair.get_heap_size_with_tracker(tracker);
+        assert_eq!(size, shared.get_heap_size());
+
+        let (size, _) = shared.get_heap_size_with_tracker(tracker);
+        assert_eq!(size, 0);
+    }
+
+    assert_tracks(parking_lot::Mutex::new(StandardTracker::new()));
+    assert_tracks(parking_lot::RwLock::new(StandardTracker::new()));
+    assert_tracks(Arc::new(parking_lot::Mutex::new(StandardTracker::new())));
+    assert_tracks(Arc::new(parking_lot::RwLock::new(StandardTracker::new())));
+}
