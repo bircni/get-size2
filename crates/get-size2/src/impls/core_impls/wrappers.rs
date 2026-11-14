@@ -50,16 +50,10 @@ where
     }
 }
 
-impl<T> GetSize for Cell<T>
-where
-    T: GetSize + Copy,
-{
-    fn get_heap_size_with_tracker<Tr: GetSizeTracker>(&self, tracker: Tr) -> (usize, Tr) {
-        // A `Cell` hands out no references, so the value is copied out. A `Copy` type cannot
-        // own heap memory itself, but may still account for some by a manual implementation.
-        T::get_heap_size_with_tracker(&self.get(), tracker)
-    }
-}
+// A `Cell` hands out no references, so its value could only be measured by copying it out, which
+// overflows the stack for a large one. A `Copy` type cannot own heap memory anyway, so nothing is
+// read at all. Cells of other types cannot be read without replacing their value.
+impl<T> GetSize for Cell<T> where T: Copy {}
 
 impl<T> GetSize for OnceCell<T>
 where
@@ -105,4 +99,6 @@ macro_rules! impl_size_transparent {
 impl_size_transparent!(Wrapping, value => &value.0);
 impl_size_transparent!(Saturating, value => &value.0);
 impl_size_transparent!(Reverse, value => &value.0);
+// A `ManuallyDrop` is measured as the owner of a live value. That is too much for one which
+// merely aliases an allocation owned elsewhere, the caller has to ignore such a field.
 impl_size_transparent!(ManuallyDrop, value => &**value);

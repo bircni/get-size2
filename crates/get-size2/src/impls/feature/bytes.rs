@@ -1,14 +1,10 @@
 use crate::{GetSize, GetSizeTracker};
 
 impl GetSize for bytes::Bytes {
-    fn get_heap_size_with_tracker<T: GetSizeTracker>(&self, mut tracker: T) -> (usize, T) {
-        // Clones share their buffer, so it is tracked like any other shared allocation. Whether
-        // a `Bytes` was created from a `'static` slice cannot be told through the public API,
-        // such a buffer is therefore counted as well.
-        if self.is_empty() || !tracker.track(self.as_ptr()) {
-            return (0, tracker);
-        }
-
+    fn get_heap_size_with_tracker<T: GetSizeTracker>(&self, tracker: T) -> (usize, T) {
+        // Neither the shared buffer nor its origin can be identified through the public API: two
+        // views may start at the same address, and a `'static` slice looks like any other. Every
+        // handle is therefore accounted for with the bytes it can reach.
         (self.len(), tracker)
     }
 }

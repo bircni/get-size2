@@ -186,8 +186,8 @@ This crate is `#![no_std]`. Which standard library implementations are available
 
 | Feature | Implemented types |
 | ------- | ----------------- |
-| _(none)_ | [`core`] types, like the primitives, [`Option`], [`Result`], ranges, tuples, arrays, references, raw pointers, `NonNull`, cells (`Cell`, `OnceCell`, `RefCell`), wrappers (`Wrapping`, `Saturating`, `Reverse`, `ManuallyDrop`, `Bound`, `Pin` of a reference) and the IP and socket addresses of [`core::net`] |
-| `alloc` | [`alloc`](https://doc.rust-lang.org/alloc/) types, like [`Vec`](alloc::vec::Vec), [`String`](alloc::string::String), [`Box`](alloc::boxed::Box), `Rc` and `Arc`, including their pinned and weak forms and `Box<str>`, `Box<[T]>` and `Box<CStr>` |
+| _(none)_ | [`core`] types, like the primitives, [`Option`], [`Result`], ranges, tuples, arrays, references, raw pointers, `NonNull`, cells (`Cell` of a `Copy` type, `OnceCell`, `RefCell`), wrappers (`Wrapping`, `Saturating`, `Reverse`, `ManuallyDrop`, `Bound`, `Pin` of a reference) and the IP and socket addresses of [`core::net`] |
+| `alloc` | [`alloc`](https://doc.rust-lang.org/alloc/) types, like [`Vec`](alloc::vec::Vec), [`String`](alloc::string::String), [`Box`](alloc::boxed::Box), `Rc` and `Arc`, including their weak forms, their pinned forms for sized targets, and `Box<str>`, `Box<[T]>` and `Box<CStr>` |
 | `std` | Types only provided by [`std`], like [`HashMap`](std::collections::HashMap), [`PathBuf`](std::path::PathBuf), `Box<Path>`, `Box<OsStr>` or `Mutex` |
 
 To build for a `no_std` target, disable the default features:
@@ -225,14 +225,14 @@ Each of these features implements [`GetSize`] for the types of the respective cr
 
 Features marked as needing `std` enable it implicitly. `all-features-no-std` is a convenience pack activating everything which works without `std`, that is every feature except `dashmap` and `parking_lot`.
 
-The `arcstr` feature enables `alloc` so shared strings can be deduplicated by the default tracker. The heap size includes the shared allocation header. Static `ArcStr` literals have no heap size. A `Substr` keeps the entire parent string alive, so the parent's full heap size is counted, with shared parents tracked once. `Uuid` is stored entirely on the stack and has no heap size. Clones of a `Bytes` share their buffer, which is tracked like any other shared allocation; a `Bytes` created from a `'static` slice cannot be told apart and is counted as well.
+The `arcstr` feature enables `alloc` so shared strings can be deduplicated by the default tracker. The heap size includes the shared allocation header. Static `ArcStr` literals have no heap size. A `Substr` keeps the entire parent string alive, so the parent's full heap size is counted, with shared parents tracked once. `Uuid` is stored entirely on the stack and has no heap size. Every `Bytes` handle is counted with the bytes it can reach: neither a buffer shared by several handles nor one borrowed from a `'static` slice can be identified through its public API.
 
 # Accuracy
 
 The reported sizes are a best effort based on the public API of the measured types:
 
 - Unused capacity is counted, since it is allocated. Small string and small vector optimizations are respected, so inline data is not double counted.
-- The bookkeeping stored inside an allocation is counted where its layout is known: the reference counters of `Rc` and `Arc`, the links of a `LinkedList` node, and the control bytes and spare buckets of hash tables. The standard library and `indexmap` do not expose the size of their hash tables, so it is reconstructed from the layout of the underlying `hashbrown` table.
-- Allocator bookkeeping, padding between allocations, the internal node overhead of `BTreeMap` and `BTreeSet` and the shards of a `DashMap` are not counted, so results are a lower bound on what the allocator actually reserved.
+- The bookkeeping stored inside an allocation is counted where its layout is known: the reference counters of `Rc` and `Arc`, the links of a `LinkedList` node, and the control bytes and spare buckets of hash tables. The standard library and `indexmap` do not expose the size of their hash tables, so it is estimated from their capacity and the layout of the underlying `hashbrown` table. That is exact for a table which never had an entry removed; removals lower the reported capacity without shrinking the allocation, so the estimate is then too low.
+- Allocator bookkeeping, padding between allocations, the internal node overhead of `BTreeMap` and `BTreeSet` and the shards of a `DashMap` are not counted, so results are usually a lower bound on what the allocator actually reserved. The exceptions are a `Bytes` buffer which is shared or `'static`, and the estimated entry size of `indexmap` and `ordermap` collections.
 - Values behind a raw pointer are not counted, since ownership cannot be determined.
-- A locking type ([`Mutex`](std::sync::Mutex), [`RwLock`](std::sync::RwLock), `RefCell`) is measured by reading its content. A poisoned lock is measured anyway. Measuring never blocks or panics: a lock which is currently held, like an already mutably borrowed `RefCell`, is reported as `0`, since waiting for it would deadlock if the calling thread is the one holding it.
+- A locking type ([`Mutex`](std::sync::Mutex), [`RwLock`](std::sync::RwLock), `RefCell`) is measured by reading its content. A poisoned lock is measured anyway, while an already mutably borrowed `RefCell` is reported as `0` instead of panicking. Measuring a `Mutex` or `RwLock` waits for the lock, so do not measure one the calling thread itself holds. A `parking_lot::ReentrantMutex` is the exception, since its holder may lock it again. A `ManuallyDrop` is measured as the owner of a live value.

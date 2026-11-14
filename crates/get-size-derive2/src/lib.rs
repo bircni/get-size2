@@ -15,7 +15,7 @@ struct FieldAttribute {
     #[attribute(conflicts = [size_fn, ignore])]
     size: Option<usize>,
     #[attribute(conflicts = [size, ignore])]
-    size_fn: Option<syn::Path>,
+    size_fn: Option<syn::Expr>,
     #[attribute(conflicts = [size, size_fn])]
     ignore: bool,
 }
@@ -25,7 +25,7 @@ enum FieldSize {
     /// `#[get_size(size = ...)]`: a fixed number of bytes.
     Fixed(usize),
     /// `#[get_size(size_fn = ...)]`: the result of calling a helper with a reference to the field.
-    Helper(syn::Path),
+    Helper(syn::ExprPath),
     /// `#[get_size(ignore)]`: nothing at all.
     Ignored,
     /// No attribute: the field's own [`GetSize`] implementation.
@@ -40,6 +40,15 @@ impl FieldSize {
         Ok(if let Some(size) = attr.size {
             Self::Fixed(size)
         } else if let Some(size_fn) = attr.size_fn {
+            // Parsing an expression, not a type like path, makes generic arguments require the
+            // turbofish, exactly as they do when the helper is called by hand.
+            let syn::Expr::Path(size_fn) = size_fn else {
+                return Err(syn::Error::new_spanned(
+                    size_fn,
+                    "`size_fn` expects the name of or the path to a function",
+                ));
+            };
+
             Self::Helper(size_fn)
         } else if attr.ignore {
             Self::Ignored
@@ -146,7 +155,7 @@ fn variant_arm(variant: &syn::Variant) -> syn::Result<TokenStream2> {
     })
 }
 
-/// Extracts the generics listed by a `#[get_size(ignore(A, B))]` attribute.
+/// Extracts the generics listed by a struct, enum or variant level `#[get_size(ignore(A, B))]`.
 fn ignored_generics_of(attr: &syn::Attribute, ignored: &mut Vec<syn::Ident>) -> syn::Result<()> {
     // Skip all attributes which do not belong to us.
     if !attr.path().is_ident("get_size") {
@@ -155,67 +164,52 @@ fn ignored_generics_of(attr: &syn::Attribute, ignored: &mut Vec<syn::Ident>) -> 
 
     attr.parse_nested_meta(|meta| {
         if meta.path.is_ident("ignore") && meta.input.peek(syn::token::Paren) {
-            // The list case: #[get_size(ignore(A, B))]
             return meta.parse_nested_meta(|generic| {
                 ignored.push(generic.path.require_ident()?.clone());
                 Ok(())
             });
         }
 
-        // Everything else belongs to the field attributes, which are validated on their own, so
-        // the value is only skipped here: `key = value`, `key(...)` or a plain flag.
-        if meta.input.peek(syn::Token![=]) {
-            meta.value()?.parse::<syn::Expr>()?;
-        } else if meta.input.peek(syn::token::Paren) {
-            let content;
-            syn::parenthesized!(content in meta.input);
-            content.step(|cursor| {
-                let mut rest = *cursor;
-                while let Some((_token, next)) = rest.token_tree() {
-                    rest = next;
-                }
-                Ok(((), rest))
-            })?;
-        }
-
-        Ok(())
+        // Anything else would be accepted without having any effect.
+        Err(meta.error(
+            "only `ignore(...)` with a list of generic parameters is supported here, \
+             `ignore`, `size` and `size_fn` belong on a field",
+        ))
     })
 }
 
 /// Collects the generics which shall not receive a `GetSize` bound.
+///
+/// Fields are not searched: their attributes are parsed by [`FieldAttribute`], which only knows
+/// the plain `ignore` flag.
 fn ignored_generics(ast: &syn::DeriveInput) -> syn::Result<Vec<syn::Ident>> {
-    let variants: Vec<&syn::Variant> = match &ast.data {
-        syn::Data::Enum(data_enum) => data_enum.variants.iter().collect(),
-        syn::Data::Struct(_) | syn::Data::Union(_) => Vec::new(),
-    };
-    let fields: Vec<&syn::Field> = match &ast.data {
-        syn::Data::Struct(data_struct) => data_struct.fields.iter().collect(),
-        syn::Data::Enum(data_enum) => data_enum
-            .variants
-            .iter()
-            .flat_map(|variant| &variant.fields)
-            .collect(),
-        syn::Data::Union(_) => Vec::new(),
+    let variants = match &ast.data {
+        syn::Data::Enum(data_enum) => Some(&data_enum.variants),
+        syn::Data::Struct(_) | syn::Data::Union(_) => None,
     };
 
-    let attrs = ast
-        .attrs
-        .iter()
-        .chain(variants.iter().flat_map(|variant| &variant.attrs))
-        .chain(fields.iter().flat_map(|field| &field.attrs));
+    let attrs = ast.attrs.iter().chain(
+        variants
+            .into_iter()
+            .flatten()
+            .flat_map(|variant| &variant.attrs),
+    );
 
     let mut ignored = Vec::new();
     for attr in attrs {
         ignored_generics_of(attr, &mut ignored)?;
     }
 
-    // A misspelled name would otherwise silently keep its bound.
+    // A misspelled name would otherwise silently keep its bound. Const parameters never receive
+    // a bound, so listing one is harmless.
     for ident in &ignored {
-        if !ast
-            .generics
-            .type_params()
-            .any(|param| param.ident == *ident)
-        {
+        let known = ast.generics.params.iter().any(|param| match param {
+            syn::GenericParam::Type(param) => param.ident == *ident,
+            syn::GenericParam::Const(param) => param.ident == *ident,
+            syn::GenericParam::Lifetime(_) => false,
+        });
+
+        if !known {
             return Err(syn::Error::new_spanned(
                 ident,
                 format!(

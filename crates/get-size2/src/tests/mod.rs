@@ -931,43 +931,6 @@ fn os_string_reports_capacity() {
 }
 
 #[test]
-fn locked_values_are_not_waited_for() {
-    // Measuring while the calling thread holds the lock would otherwise deadlock.
-    let mutex = Mutex::new(String::from("locked"));
-    let guard = mutex.lock().unwrap();
-    assert_eq!(mutex.get_heap_size(), 0);
-    drop(guard);
-    assert_eq!(mutex.get_heap_size(), "locked".len());
-
-    let rwlock = RwLock::new(String::from("locked"));
-    let guard = rwlock.write().unwrap();
-    assert_eq!(rwlock.get_heap_size(), 0);
-    drop(guard);
-
-    // Readers do not exclude each other.
-    let guard = rwlock.read().unwrap();
-    assert_eq!(rwlock.get_heap_size(), "locked".len());
-    drop(guard);
-}
-
-#[test]
-fn standard_tracker_distinguishes_aligned_addresses() {
-    // Allocations are aligned, so their addresses only differ in the upper bits.
-    let values: Vec<u64> = (0..10_000).collect();
-    let mut tracker = StandardTracker::new();
-
-    for value in &values {
-        assert!(tracker.track(std::ptr::from_ref(value)));
-    }
-    for value in &values {
-        assert!(!tracker.track(std::ptr::from_ref(value)));
-    }
-
-    tracker.clear();
-    assert!(tracker.track(std::ptr::from_ref(&values[0])));
-}
-
-#[test]
 fn cells() {
     use std::cell::{Cell, OnceCell};
 

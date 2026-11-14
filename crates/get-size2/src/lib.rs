@@ -3,6 +3,8 @@
 // optional dependency gated item shows what it requires.
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![no_std]
+// Not part of the workspace lints, since those apply to the examples as well, which would then
+// have to document every item they declare.
 #![warn(missing_docs)]
 
 #[cfg(feature = "alloc")]
