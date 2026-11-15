@@ -378,7 +378,7 @@ fn small_buffers_respect_their_inline_storage() {
 fn byte_buffers_report_their_capacity() {
     exact("BytesMut", || bytes::BytesMut::with_capacity(1000));
     exact("Bytes", || {
-        bytes::Bytes::from(vec![0u8; 1000].into_boxed_slice())
+        bytes::Bytes::from(vec![0u8; 1000])
     });
     exact("ArcStr", || arcstr::ArcStr::from("a shared string"));
     exact("ArcStr literal", || arcstr::literal!("a static string"));

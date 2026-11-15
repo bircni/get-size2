@@ -20,7 +20,8 @@ get-size-derive2 = { workspace = true, optional = true }
 
 arcstr = { version = "1", default-features = false, features = ["substr"], optional = true }
 bytes = { version = "1", default-features = false, optional = true }
-chrono = { version = "0.4", default-features = false, optional = true }
+# 0.4.34 is the first version to export `TimeDelta`.
+chrono = { version = "0.4.34", default-features = false, optional = true }
 chrono-tz = { version = "0.10", default-features = false, optional = true }
 compact_str = { version = "0.10", default-features = false, optional = true }
 dashmap = { version = "6", default-features = false, optional = true }
