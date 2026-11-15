@@ -26,6 +26,9 @@ impl<T> GetSize for portable_atomic::AtomicPtr<T> {}
 // crate enables, or through its `portable_atomic_unsafe_assume_single_core` cfg.
 #[cfg(any(
     target_has_atomic = "ptr",
+    // Single core architectures, for which `portable-atomic` always disables interrupts itself.
+    target_arch = "avr",
+    target_arch = "msp430",
     feature = "portable-atomic-critical-section",
     portable_atomic_unsafe_assume_single_core,
 ))]

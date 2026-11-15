@@ -23,13 +23,15 @@ buffer.push(1u8);
 assert_eq!(buffer.get_heap_size(), 1024);
 ```
 
-The trait provides three methods:
+These are the three methods you will usually call:
 
 | Method | Returns |
 | ------ | ------- |
 | [`get_stack_size`](GetSize::get_stack_size) | The bytes occupied on the stack, by default [`size_of::<Self>()`](core::mem::size_of) |
 | [`get_heap_size`](GetSize::get_heap_size) | The bytes this value owns on the heap |
 | [`get_size`](GetSize::get_size) | The sum of both |
+
+Each of the two measuring methods has a `_with_tracker` variant, [`get_heap_size_with_tracker`](GetSize::get_heap_size_with_tracker) being the one an implementation has to provide.
 
 It is implemented for the primitives and for most types of [`core`], [`alloc`](https://doc.rust-lang.org/alloc/) and [`std`], for your own types via [the derive macro](#deriving-getsize), and for a number of popular third party types behind [feature flags](#feature-flags).
 
@@ -224,7 +226,7 @@ Each of these features implements [`GetSize`] for the types of the respective cr
 | `url` | `Url` | |
 | `uuid` | `Uuid` | |
 
-On a target without atomic compare-and-swap, like `thumbv6m`, `portable-atomic` only provides its 64 and 128 bit atomics once it is told how to disable interrupts. [`GetSize`] is implemented for them there if that is done through the `portable-atomic-critical-section` feature of this crate, or through the `portable_atomic_unsafe_assume_single_core` cfg. Use one of the two, not both, which `portable-atomic` rejects. Enabling the `critical-section` or `unsafe-assume-single-core` feature of `portable-atomic` from another crate is not visible to this one, so those types are then left without an implementation.
+On most targets without atomic compare-and-swap, like `thumbv6m`, `portable-atomic` only provides its 64 and 128 bit atomics once it is told how to disable interrupts. [`GetSize`] is implemented for them there if that is done through the `portable-atomic-critical-section` feature of this crate, or through the `portable_atomic_unsafe_assume_single_core` cfg. Use one of the two, not both, which `portable-atomic` rejects. Enabling the `critical-section` or `unsafe-assume-single-core` feature of `portable-atomic` from another crate is not visible to this one, so those types are then left without an implementation.
 
 Features marked as needing `std` enable it implicitly. `all-features-no-std` is a convenience pack activating everything which works without `std`, that is every feature except `dashmap`, `parking_lot` and the target specific `portable-atomic-critical-section`.
 

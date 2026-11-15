@@ -146,3 +146,69 @@ fn provided_trackers_are_interchangeable() {
     tracker.clear();
     assert!(tracker.track(&raw const once));
 }
+
+/// Helpers named like the local variables of the generated code.
+const fn total(value: &[u8]) -> usize {
+    value.len()
+}
+
+const fn tracker(value: &[u8]) -> usize {
+    value.len()
+}
+
+const fn field_size(value: &[u8]) -> usize {
+    value.len()
+}
+
+const fn field_0(value: &[u8]) -> usize {
+    value.len()
+}
+
+#[test]
+fn generated_locals_do_not_capture_user_names() {
+    #[derive(GetSize)]
+    struct Fields {
+        total: String,
+        tracker: String,
+        field_size: String,
+        #[get_size(size_fn = total)]
+        first: Vec<u8>,
+        #[get_size(size_fn = tracker)]
+        second: Vec<u8>,
+        #[get_size(size_fn = field_size)]
+        third: Vec<u8>,
+    }
+
+    #[derive(GetSize)]
+    enum Variants {
+        Named {
+            total: String,
+            tracker: String,
+            field_0: String,
+            #[get_size(size_fn = field_0)]
+            helped: Vec<u8>,
+        },
+        Tuple(String, #[get_size(size_fn = total)] Vec<u8>),
+    }
+
+    let fields = Fields {
+        total: String::from("a"),
+        tracker: String::from("bc"),
+        field_size: String::from("def"),
+        first: vec![0; 10],
+        second: vec![0; 20],
+        third: vec![0; 30],
+    };
+    assert_eq!(fields.get_heap_size(), 1 + 2 + 3 + 10 + 20 + 30);
+
+    let named = Variants::Named {
+        total: String::from("a"),
+        tracker: String::from("bc"),
+        field_0: String::from("def"),
+        helped: vec![0; 10],
+    };
+    assert_eq!(named.get_heap_size(), 1 + 2 + 3 + 10);
+
+    let tuple = Variants::Tuple(String::from("abcd"), vec![0; 10]);
+    assert_eq!(tuple.get_heap_size(), 4 + 10);
+}

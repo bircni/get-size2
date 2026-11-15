@@ -35,7 +35,7 @@ Only bytes *owned* by a value are counted, so anything merely borrowed through a
 
 ## Features
 
-`std` is enabled by default and implies `alloc`; disable both for `no_std` targets:
+`std` is enabled by default and implies `alloc`; disable the default features for `no_std` targets, and enable `alloc` again if one is available:
 
 ```sh
 cargo add get-size2 --no-default-features --features alloc,derive

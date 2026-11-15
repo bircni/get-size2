@@ -164,7 +164,7 @@ jobs:
       # A target without atomic compare-and-swap: `alloc` provides no `Arc` there, and the
       # fallbacks of `portable-atomic` are unavailable. Most integrations do not support such a
       # target themselves, so only the tiers of this crate and the features meant for it are
-      # built, in every combination. The last build covers the cfg through which
+      # built, in every combination. The second build covers the cfg through which
       # `portable-atomic` is told to assume a single core, which no feature can stand in for.
       - name: Build for a target without compare-and-swap
         run: |
@@ -352,7 +352,8 @@ jobs:
         with:
           shared-key: publish
       - run: cargo fetch
-      - name: cargo publish get-size2
-        run: cargo publish --dry-run -p get-size2
-      - name: cargo publish get-size-derive2
-        run: cargo publish --dry-run -p get-size-derive2
+      # Packages both crates in one go, so `get-size2` is verified against the derive macro of
+      # this very commit. Published one by one, the check would fail on the commit which bumps
+      # the version, as the new derive macro is not on crates.io yet.
+      - name: cargo publish
+        run: cargo publish --dry-run --workspace
