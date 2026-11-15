@@ -35,7 +35,8 @@ portable-atomic = { version = "1", default-features = false, features = [
 ], optional = true }
 roaring = { version = "0.12", default-features = false, optional = true }
 smallvec = { version = "1", default-features = false, optional = true }
-thin-vec = { version = "0.2", default-features = false, optional = true }
+# 0.2.20 stopped allocating for zero sized elements, which the implementation relies on.
+thin-vec = { version = "0.2.20", default-features = false, optional = true }
 url = { version = "2", default-features = false, optional = true }
 uuid = { version = "1", default-features = false, optional = true }
 

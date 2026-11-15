@@ -8,8 +8,9 @@ where
     T: GetSize,
 {
     fn get_heap_size_with_tracker<Tr: GetSizeTracker>(&self, tracker: Tr) -> (usize, Tr) {
-        // A vector which never held an element points at a shared static header.
-        if !self.has_capacity() {
+        // A vector which never held an element points at a shared static header, and one of
+        // zero sized elements never allocates.
+        if !self.has_capacity() || size_of::<T>() == 0 {
             return (0, tracker);
         }
 
@@ -18,14 +19,9 @@ where
             (size + elem_size, tracker)
         });
 
-        // The header is padded up to the alignment of the elements. Zero sized elements need
-        // no room behind it, and report an unbounded capacity.
+        // The header is padded up to the alignment of the elements.
         let header_size = HEADER_SIZE.max(align_of::<T>());
-        let allocation_size = if size_of::<T>() == 0 {
-            0
-        } else {
-            self.capacity() * T::get_stack_size()
-        };
+        let allocation_size = self.capacity() * T::get_stack_size();
         (size + header_size + allocation_size, tracker)
     }
 }

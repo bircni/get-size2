@@ -268,12 +268,11 @@ fn thin_vec() {
             + std::mem::size_of::<usize>() * 2
     );
 
-    // Regression test: zero sized elements only need the header, which reported an unbounded
-    // capacity, and the header is padded up to the alignment of the elements.
+    // Regression test: zero sized elements never allocate, and the header is padded up to the
+    // alignment of the elements.
     let mut zero_sized = thin_vec::ThinVec::<()>::new();
-    assert_eq!(zero_sized.get_heap_size(), 0);
     zero_sized.push(());
-    assert_eq!(zero_sized.get_heap_size(), 2 * size_of::<usize>());
+    assert_eq!(zero_sized.get_heap_size(), 0);
 
     let aligned = thin_vec::ThinVec::<u128>::with_capacity(4);
     assert_eq!(
