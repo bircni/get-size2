@@ -164,11 +164,15 @@ jobs:
       # A target without atomic compare-and-swap: `alloc` provides no `Arc` there, and the
       # fallbacks of `portable-atomic` are unavailable. Most integrations do not support such a
       # target themselves, so only the tiers of this crate and the features meant for it are
-      # built, in every combination.
+      # built, in every combination. The last build covers the cfg through which
+      # `portable-atomic` is told to assume a single core, which no feature can stand in for.
       - name: Build for a target without compare-and-swap
         run: |
           rustup target add thumbv6m-none-eabi
           cargo build -p get-size2 --no-default-features --target thumbv6m-none-eabi
+          RUSTFLAGS="--cfg portable_atomic_unsafe_assume_single_core" \
+            cargo build -p get-size2 --no-default-features --features portable-atomic \
+            --target thumbv6m-none-eabi
           cargo hack build -p get-size2 --feature-powerset \
             --include-features alloc,derive,portable-atomic,portable-atomic-critical-section --target thumbv6m-none-eabi
 
@@ -196,7 +200,7 @@ jobs:
       # out, since their dependencies raise their own minimum version independently of us.
       #
       # No lockfile is committed, so this builds against the newest `syn`, `quote` and
-      # `attribute-derive`. Should one of them raise its minimum version, this job fails on an
+      # `proc-macro2`. Should one of them raise its minimum version, this job fails on an
       # unrelated change. That is intended: it is what users on that toolchain would hit as well.
       - name: Build without default features
         run: cargo +1.85 build -p get-size2 --no-default-features

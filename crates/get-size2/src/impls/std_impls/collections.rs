@@ -19,7 +19,7 @@ where
             });
 
         let allocation_size = std_hash_table_size(self.capacity(), Layout::new::<(K, V)>());
-        (size + allocation_size, tracker)
+        (size.saturating_add(allocation_size), tracker)
     }
 }
 
@@ -34,6 +34,6 @@ where
         });
 
         let allocation_size = std_hash_table_size(self.capacity(), Layout::new::<T>());
-        (size + allocation_size, tracker)
+        (size.saturating_add(allocation_size), tracker)
     }
 }

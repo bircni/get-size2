@@ -99,12 +99,13 @@ fn hash_table_size(capacity: usize, entry: Layout, group_width: usize) -> usize 
     } else if capacity < 15 {
         16
     } else {
-        let buckets = capacity
+        // `capacity * 8 / 7`, split up so that it cannot overflow before the division.
+        let buckets = (capacity / 7)
             .checked_mul(8)
-            .map(|scaled| scaled / 7)
+            .and_then(|buckets| buckets.checked_add(capacity % 7 * 8 / 7))
             .and_then(usize::checked_next_power_of_two);
 
-        // No allocation can be this large.
+        // More buckets than the address space can hold.
         let Some(buckets) = buckets else {
             return usize::MAX;
         };

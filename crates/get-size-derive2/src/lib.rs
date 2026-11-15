@@ -49,28 +49,27 @@ impl FieldSize {
         Ok(size.unwrap_or(Self::Measured))
     }
 
-    /// Parses a single `key` or `key = value` of a field attribute.
+    /// Parses a single `key`, `key = value` or `key(value)` of a field attribute.
     fn parse(meta: &syn::meta::ParseNestedMeta<'_>) -> syn::Result<Self> {
         if meta.path.is_ident("size") {
-            let size: syn::LitInt = meta
-                .value()?
-                .parse()
-                .map_err(|_| meta.error("`size` expects a number of bytes, like `size = 1024`"))?;
+            let invalid = || meta.error("`size` expects a number of bytes, like `size = 1024`");
 
-            return Ok(Self::Fixed(size.base10_parse()?));
+            let size = Self::value::<syn::LitInt>(meta)
+                .ok()
+                // A suffix would be dropped silently, turning `0XFF` into 0.
+                .filter(|size| matches!(size.suffix(), "" | "usize"))
+                .and_then(|size| size.base10_parse().ok())
+                .ok_or_else(invalid)?;
+
+            return Ok(Self::Fixed(size));
         }
 
         if meta.path.is_ident("size_fn") {
             // Parsed as an expression, not as a type like path, so generic arguments need the
             // turbofish, exactly as they do when the helper is called by hand.
-            let value = meta.value()?;
-
-            return value
-                .parse::<syn::ExprPath>()
-                .ok()
-                .filter(|_| value.is_empty() || value.peek(syn::Token![,]))
+            return Self::value::<syn::ExprPath>(meta)
                 .map(Self::Helper)
-                .ok_or_else(|| {
+                .map_err(|_| {
                     meta.error(
                         "`size_fn` expects the name of or the path to a function, with generic \
                          arguments written as `::<T>`",
@@ -79,24 +78,23 @@ impl FieldSize {
         }
 
         if meta.path.is_ident("ignore") {
-            if meta.input.peek(syn::token::Paren) {
-                return Err(meta.error(
-                    "a list of generic parameters to ignore belongs on the struct or enum, \
-                     a field only takes a plain `ignore`",
-                ));
+            // A plain `ignore` is the common spelling. `ignore = false` leaves the field to be
+            // measured as usual.
+            if !meta.input.peek(syn::Token![=]) && !meta.input.peek(syn::token::Paren) {
+                return Ok(Self::Ignored);
             }
 
-            // `ignore = false` leaves the field to be measured as usual.
-            let ignore = if meta.input.peek(syn::Token![=]) {
-                let ignore: syn::LitBool = meta.value()?.parse().map_err(|_| {
-                    meta.error("`ignore` expects no value, or `ignore = true` or `ignore = false`")
-                })?;
-                ignore.value
-            } else {
-                true
-            };
+            let in_parentheses = meta.input.peek(syn::token::Paren);
+            let ignore = Self::value::<syn::LitBool>(meta).map_err(|_| {
+                meta.error(if in_parentheses {
+                    "a list of generic parameters to ignore belongs on the struct or enum, \
+                         a field only takes a plain `ignore`"
+                } else {
+                    "`ignore` expects no value, or `ignore = true` or `ignore = false`"
+                })
+            })?;
 
-            return Ok(if ignore {
+            return Ok(if ignore.value {
                 Self::Ignored
             } else {
                 Self::Measured
@@ -104,6 +102,31 @@ impl FieldSize {
         }
 
         Err(meta.error("the supported field attributes are `size`, `size_fn` and `ignore`"))
+    }
+
+    /// Parses the value of a `key = value` or of the equivalent `key(value)`, which has to be
+    /// followed by the next key or the end of the attribute.
+    fn value<T: syn::parse::Parse>(meta: &syn::meta::ParseNestedMeta<'_>) -> syn::Result<T> {
+        if meta.input.peek(syn::token::Paren) {
+            let content;
+            syn::parenthesized!(content in meta.input);
+            let value = content.parse()?;
+
+            return if content.is_empty() {
+                Ok(value)
+            } else {
+                Err(content.error("unexpected token"))
+            };
+        }
+
+        let input = meta.value()?;
+        let value = input.parse()?;
+
+        if input.is_empty() || input.peek(syn::Token![,]) {
+            Ok(value)
+        } else {
+            Err(input.error("unexpected token"))
+        }
     }
 
     /// Whether the generated code has to access the field's value.
@@ -450,6 +473,7 @@ mod tests {
     fn rejects_conflicting_and_malformed_field_attributes() {
         const EXCLUSIVE: &str = "`size`, `size_fn` and `ignore` are mutually exclusive, only one \
                                  of them may be given once";
+        const SIZE: &str = "`size` expects a number of bytes, like `size = 1024`";
         const SIZE_FN: &str = "`size_fn` expects the name of or the path to a function, with \
                                generic arguments written as `::<T>`";
 
@@ -463,11 +487,16 @@ mod tests {
                 quote! { bogus },
                 "the supported field attributes are `size`, `size_fn` and `ignore`",
             ),
-            (
-                quote! { size = "one" },
-                "`size` expects a number of bytes, like `size = 1024`",
-            ),
-            (quote! { size }, "expected `=`"),
+            (quote! { size = "one" }, SIZE),
+            (quote! { size }, SIZE),
+            (quote! { size = -1 }, SIZE),
+            (quote! { size = 0XFF }, SIZE),
+            (quote! { size = 300u8 }, SIZE),
+            (quote! { size = 1.5 }, SIZE),
+            (quote! { size = 99999999999999999999999999999999 }, SIZE),
+            (quote! { size(1, 2) }, SIZE),
+            (quote! { size_fn(helper, other) }, SIZE_FN),
+            (quote! { size_fn }, SIZE_FN),
             (
                 quote! { ignore(T) },
                 "a list of generic parameters to ignore belongs on the struct or enum, a field \
@@ -518,19 +547,43 @@ mod tests {
                 dropped: u8,
                 #[get_size(size = 0x10usize,)]
                 fixed: u8,
+                // The parenthesised spellings are equivalent.
+                #[get_size(size(0b11))]
+                parenthesised: u8,
+                #[get_size(size_fn(helpers::len))]
+                helped: u8,
+                #[get_size(ignore(true))]
+                dropped_too: u8,
+                #[get_size(ignore(false))]
+                kept_too: u8,
                 #[other(attribute)]
                 foreign: u8,
             }
         });
 
-        for measured in ["&self.bare", "&self.empty", "&self.kept", "&self.foreign"] {
+        for measured in [
+            "&self.bare",
+            "&self.empty",
+            "&self.kept",
+            "&self.kept_too",
+            "&self.foreign",
+        ] {
             assert!(
                 implementation.contains(measured),
                 "{measured}: {implementation}"
             );
         }
         assert!(!implementation.contains("self.dropped"), "{implementation}");
+        assert!(
+            !implementation.contains("self.dropped_too"),
+            "{implementation}"
+        );
         assert!(implementation.contains("+16usize;"), "{implementation}");
+        assert!(implementation.contains("+3usize;"), "{implementation}");
+        assert!(
+            implementation.contains("helpers::len(&self.helped)"),
+            "{implementation}"
+        );
     }
 
     #[test]

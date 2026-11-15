@@ -46,9 +46,9 @@ cargo add get-size2 --no-default-features --features alloc,derive
 | `std` _(default)_ | Implementations for `std` types like `HashMap`, `PathBuf` or `Mutex` |
 | `alloc` | Implementations for `alloc` types like `Vec`, `String`, `Box`, `Rc` and `Arc` |
 | `derive` | The `#[derive(GetSize)]` macro |
-| `all-features-no-std` | Every feature which works without `std` |
+| `all-features-no-std` | Every feature which works without `std`, except the target specific `portable-atomic-critical-section` |
 
-Implementations for third party types are available behind the `arcstr`, `bytes`, `chrono`, `chrono-tz`, `compact-str`, `dashmap`, `half`, `hashbrown`, `indexmap`, `ordermap`, `orx-concurrent-vec`, `parking_lot`, `portable-atomic`, `roaring`, `smallvec`, `thin-vec`, `url` and `uuid` features. `dashmap` and `parking_lot` require `std`. `arcstr` enables `alloc` and supports both `ArcStr` and `Substr`.
+Implementations for third party types are available behind the `arcstr`, `bytes`, `chrono`, `chrono-tz`, `compact-str`, `dashmap`, `half`, `hashbrown`, `indexmap`, `ordermap`, `orx-concurrent-vec`, `parking_lot`, `portable-atomic`, `roaring`, `smallvec`, `thin-vec`, `url` and `uuid` features. `dashmap` and `parking_lot` require `std`. `portable-atomic-critical-section` additionally covers the 64 and 128 bit atomics on targets without atomic compare-and-swap. `arcstr` enables `alloc` and supports both `ArcStr` and `Substr`.
 
 ## Documentation
 

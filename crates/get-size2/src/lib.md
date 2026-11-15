@@ -224,9 +224,9 @@ Each of these features implements [`GetSize`] for the types of the respective cr
 | `url` | `Url` | |
 | `uuid` | `Uuid` | |
 
-On a target without atomic compare-and-swap, like `thumbv6m`, `portable-atomic` only provides its 64 and 128 bit atomics once it is told how to disable interrupts. [`GetSize`] is implemented for them there if that is done through the `portable-atomic-critical-section` feature of this crate, or through the `portable_atomic_unsafe_assume_single_core` cfg.
+On a target without atomic compare-and-swap, like `thumbv6m`, `portable-atomic` only provides its 64 and 128 bit atomics once it is told how to disable interrupts. [`GetSize`] is implemented for them there if that is done through the `portable-atomic-critical-section` feature of this crate, or through the `portable_atomic_unsafe_assume_single_core` cfg. Use one of the two, not both, which `portable-atomic` rejects. Enabling the `critical-section` or `unsafe-assume-single-core` feature of `portable-atomic` from another crate is not visible to this one, so those types are then left without an implementation.
 
-Features marked as needing `std` enable it implicitly. `all-features-no-std` is a convenience pack activating everything which works without `std`, that is every feature except `dashmap` and `parking_lot`.
+Features marked as needing `std` enable it implicitly. `all-features-no-std` is a convenience pack activating everything which works without `std`, that is every feature except `dashmap`, `parking_lot` and the target specific `portable-atomic-critical-section`.
 
 The `arcstr` feature enables `alloc` so shared strings can be deduplicated by the default tracker. The heap size includes the shared allocation header. Static `ArcStr` literals have no heap size. A `Substr` keeps the entire parent string alive, so the parent's full heap size is counted, with shared parents tracked once. `Uuid` is stored entirely on the stack and has no heap size. Every `Bytes` handle is counted with the bytes it can reach: neither a buffer shared by several handles nor one borrowed from a `'static` slice can be identified through its public API.
 
