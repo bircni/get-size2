@@ -6,15 +6,14 @@ use crate::{GetSize, GetSizeTracker};
 macro_rules! impl_sum_of_fields {
     ($name:ident, $($field:ident),+) => {
         impl<I: GetSize> GetSize for $name<I> {
-            #[allow(unused_mut, reason = "the macro supports a variadic number of elements")]
-            #[expect(clippy::allow_attributes, reason = "the macro supports a variadic number of elements")]
-            fn get_heap_size_with_tracker<Tr: GetSizeTracker>(&self, mut tracker: Tr) -> (usize, Tr) {
-                let mut size = 0;
-                let mut elem_size;
+            fn get_heap_size_with_tracker<Tr: GetSizeTracker>(&self, tracker: Tr) -> (usize, Tr) {
+                let size = 0;
 
+                // Rebinding instead of assigning keeps the variables immutable, however many
+                // fields the macro is expanded for.
                 $(
-                    (elem_size, tracker) = self.$field.get_heap_size_with_tracker(tracker);
-                    size += elem_size;
+                    let (elem_size, tracker) = self.$field.get_heap_size_with_tracker(tracker);
+                    let size = size + elem_size;
                 )+
 
                 (size, tracker)

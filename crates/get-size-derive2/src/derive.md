@@ -277,6 +277,8 @@ assert_eq!(data.get_heap_size(), 5 + 100 + 50);
 
 The macro reports a compile error when it is used on a union, when a field is given more than one of `size`, `size_fn` and `ignore`, or when an attribute is not one of those listed above. A field whose type does not implement [`GetSize`] and which is not covered by an attribute also fails to compile.
 
+Names starting with `__get_size_` are reserved for the generated code. A constant, static or unit struct named like that in the scope of the deriving type clashes with it.
+
 The field attributes are rejected on a struct, an enum or a variant, where they would have no effect:
 
 ```rust,compile_fail

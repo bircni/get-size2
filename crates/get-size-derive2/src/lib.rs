@@ -182,8 +182,8 @@ impl Field {
 /// Two things keep it apart from the names of the user. The mixed site span gives it the hygiene
 /// of a `macro_rules!` local, so it is neither captured by a field bound in an enum variant
 /// pattern nor does it shadow a helper function. That hygiene does not cover items though: a
-/// constant or static of the same name would turn the binding into a pattern. The prefix makes
-/// such a clash as unlikely as it gets.
+/// constant of the same name would turn the binding into a pattern, and a static must not be
+/// shadowed at all. The prefix, which is documented as reserved, keeps such items apart.
 fn local(name: &str) -> syn::Ident {
     syn::Ident::new(
         &format!("__get_size_{name}"),
@@ -224,7 +224,7 @@ fn sum_fields(fields: &[Field], reference: impl Fn(usize, &Field) -> TokenStream
         });
 
     quote! {
-        let #total: ::core::primitive::usize = 0;
+        let #total: ::get_size2::__private::usize = 0;
         #(#additions)*
         (#total, #tracker)
     }
@@ -416,7 +416,7 @@ fn expand(input: TokenStream2) -> syn::Result<TokenStream2> {
             fn get_heap_size_with_tracker<__GetSizeTracker: ::get_size2::GetSizeTracker>(
                 &self,
                 #tracker: __GetSizeTracker,
-            ) -> (::core::primitive::usize, __GetSizeTracker) {
+            ) -> (::get_size2::__private::usize, __GetSizeTracker) {
                 #body
             }
         }

@@ -8,7 +8,8 @@ use crate::{GetSize, GetSizeTracker};
 // - a bitset container always allocates 1024 words of 64 bits,
 // - an array container stores each value as a `u16`, so it allocates half of what the statistics
 //   report, and never less than its values need should the statistics ever be corrected,
-// - a run container stores each run as two `u16`, which its serialized size covers.
+// - a run container stores each run as two `u16`, which is its serialized size without the two
+//   bytes counting the runs.
 //
 // The spare capacity of run containers and the `Vec<Container>` itself cannot be measured, so
 // the result is a lower bound. The latter outweighs the containers for a very sparse bitmap.
@@ -22,10 +23,13 @@ impl GetSize for roaring::RoaringBitmap {
         let array_bytes = u64::from(s.n_values_array_containers)
             .saturating_mul(2)
             .max(s.n_bytes_array_containers / 2);
+        let run_bytes = s
+            .n_bytes_run_containers
+            .saturating_sub(u64::from(s.n_run_containers).saturating_mul(2));
         let bytes = u64::from(s.n_bitset_containers)
             .saturating_mul(BITSET_CONTAINER_BYTES)
             .saturating_add(array_bytes)
-            .saturating_add(s.n_bytes_run_containers);
+            .saturating_add(run_bytes);
 
         // At most 65 536 containers of 8 KiB each, which fits everywhere but is saturated to be
         // safe.

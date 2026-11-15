@@ -8,16 +8,15 @@ macro_rules! impl_size_tuple {
                 $T: GetSize,
             )*
         {
-            #[allow(unused_mut, reason = "the macro supports a variadic number of elements")]
-            #[expect(clippy::allow_attributes, reason = "the macro supports a variadic number of elements")]
-            fn get_heap_size_with_tracker<Tr: GetSizeTracker>(&self, mut tracker: Tr) -> (usize, Tr) {
-                let mut total = 0;
-                let mut elem_size;
+            fn get_heap_size_with_tracker<Tr: GetSizeTracker>(&self, tracker: Tr) -> (usize, Tr) {
+                let total = 0;
 
+                // Rebinding instead of assigning keeps the variables immutable, however many
+                // elements the macro is expanded for.
                 let ($($t,)*) = self;
                 $(
-                    (elem_size, tracker) = <$T>::get_heap_size_with_tracker($t, tracker);
-                    total += elem_size;
+                    let (elem_size, tracker) = <$T>::get_heap_size_with_tracker($t, tracker);
+                    let total = total + elem_size;
                 )*
 
                 (total, tracker)

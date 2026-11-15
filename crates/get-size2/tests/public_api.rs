@@ -164,6 +164,16 @@ const fn field_0(value: &[u8]) -> usize {
     value.len()
 }
 
+/// A helper named exactly like a local variable of the generated code, prefix included. Only
+/// the hygiene of that local keeps the two apart.
+const fn __get_size_total(value: &[u8]) -> usize {
+    value.len()
+}
+
+const fn __get_size_field_0(value: &[u8]) -> usize {
+    value.len()
+}
+
 #[test]
 fn generated_locals_do_not_capture_user_names() {
     #[derive(GetSize)]
@@ -189,6 +199,14 @@ fn generated_locals_do_not_capture_user_names() {
             helped: Vec<u8>,
         },
         Tuple(String, #[get_size(size_fn = total)] Vec<u8>),
+        Prefixed {
+            __get_size_total: String,
+            __get_size_tracker: String,
+            #[get_size(size_fn = __get_size_field_0)]
+            first: Vec<u8>,
+            #[get_size(size_fn = __get_size_total)]
+            second: Vec<u8>,
+        },
     }
 
     let fields = Fields {
@@ -211,6 +229,14 @@ fn generated_locals_do_not_capture_user_names() {
 
     let tuple = Variants::Tuple(String::from("abcd"), vec![0; 10]);
     assert_eq!(tuple.get_heap_size(), 4 + 10);
+
+    let prefixed = Variants::Prefixed {
+        __get_size_total: String::from("a"),
+        __get_size_tracker: String::from("bc"),
+        first: vec![0; 10],
+        second: vec![0; 20],
+    };
+    assert_eq!(prefixed.get_heap_size(), 1 + 2 + 10 + 20);
 }
 
 /// Items named like the local variables of the generated code, as a glob import of generated
@@ -232,13 +258,14 @@ mod items {
     pub struct usize;
 
     #[derive(GetSize)]
-    pub struct Struct<const field_1: bool> {
+    pub struct Struct<const total: bool> {
         pub name: String,
         pub data: Vec<u8>,
     }
 
+    // The second field of the tuple variant is bound to a local named after its position.
     #[derive(GetSize)]
-    pub enum Enum {
+    pub enum Enum<const field_1: bool> {
         Tuple(String, Vec<u8>),
         Named { name: String },
     }
@@ -255,10 +282,10 @@ fn generated_locals_do_not_clash_with_user_items() {
     };
     assert_eq!(value.get_heap_size(), 4 + 10);
 
-    let tuple = items::Enum::Tuple(String::from("name"), vec![0; 10]);
+    let tuple = items::Enum::<true>::Tuple(String::from("name"), vec![0; 10]);
     assert_eq!(tuple.get_heap_size(), 4 + 10);
 
-    let named = items::Enum::Named {
+    let named = items::Enum::<true>::Named {
         name: String::from("name"),
     };
     assert_eq!(named.get_heap_size(), 4);
