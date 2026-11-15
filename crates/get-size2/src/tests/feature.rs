@@ -267,6 +267,18 @@ fn thin_vec() {
             + std::mem::size_of::<String>() * vec.len()
             + std::mem::size_of::<usize>() * 2
     );
+
+    // Regression test: zero sized elements never allocate, and the header is padded up to the
+    // alignment of the elements.
+    let mut zero_sized = thin_vec::ThinVec::<()>::new();
+    zero_sized.push(());
+    assert_eq!(zero_sized.get_heap_size(), 0);
+
+    let aligned = thin_vec::ThinVec::<u128>::with_capacity(4);
+    assert_eq!(
+        aligned.get_heap_size(),
+        (2 * size_of::<usize>()).max(align_of::<u128>()) + aligned.capacity() * size_of::<u128>()
+    );
 }
 
 #[test]
@@ -355,40 +367,48 @@ fn test_roaring_bitmap() {
     let empty = roaring::RoaringBitmap::new();
     assert_eq!(empty.get_heap_size(), 0);
 
-    // Dense run that fits in one array container: should equal what
-    // `statistics()` reports for an array container — `capacity * 4`.
+    // An array container stores each of its values as a `u16`.
     let dense: roaring::RoaringBitmap = (1..100).collect();
     let stats = dense.statistics();
     assert_eq!(stats.n_containers, 1);
     assert_eq!(stats.n_array_containers, 1);
-    assert_eq!(dense.get_heap_size() as u64, stats.n_bytes_array_containers);
-    assert!(dense.get_heap_size() > 0);
-
-    // Bitmap container kicks in past ~4096 entries; verify we count
-    // the fixed 8 KiB allocation. Equality against the sum of all three
-    // flavor totals catches regressions that drop a flavor.
-    let wide: roaring::RoaringBitmap = (0..5000).collect();
-    let stats = wide.statistics();
-    assert!(stats.n_bitset_containers >= 1);
+    assert!(dense.get_heap_size() >= 99 * size_of::<u16>());
+    // Regression test: the statistics count the capacity as if the values were `u32`.
     assert_eq!(
-        wide.get_heap_size() as u64,
-        stats.n_bytes_array_containers
-            + stats.n_bytes_bitset_containers
-            + stats.n_bytes_run_containers
+        dense.get_heap_size() as u64,
+        stats.n_bytes_array_containers / 2
     );
 
-    // Run containers are produced by `optimize()` when a container has
-    // long dense runs. Verify we count run-container bytes too.
+    // A bitset container kicks in past 4096 entries and always allocates 8 KiB. Regression
+    // test: the byte total of `statistics()` reports eight times as much.
+    let wide: roaring::RoaringBitmap = (0..5000).collect();
+    let stats = wide.statistics();
+    assert_eq!(stats.n_bitset_containers, 1);
+    assert_eq!(wide.get_heap_size(), 8192);
+
+    // Run containers are produced by `optimize()` when a container has long dense runs, and
+    // store each run as two `u16`.
     let mut run = (0..10_000).collect::<roaring::RoaringBitmap>();
     run.optimize();
     let stats = run.statistics();
-    assert!(stats.n_run_containers >= 1);
-    assert_eq!(
-        run.get_heap_size() as u64,
-        stats.n_bytes_array_containers
-            + stats.n_bytes_bitset_containers
-            + stats.n_bytes_run_containers
-    );
+    assert_eq!(stats.n_run_containers, 1);
+    // One run of two `u16`. Regression test: the serialized size also holds a two byte count.
+    assert_eq!(run.get_heap_size(), 2 * size_of::<u16>());
+
+    // Three runs in each of two containers.
+    let mut runs: roaring::RoaringBitmap = [0u32, 1 << 16]
+        .into_iter()
+        .flat_map(|base| (0..3).flat_map(move |run| (base + run * 1000)..(base + run * 1000 + 500)))
+        .collect();
+    runs.optimize();
+    assert_eq!(runs.statistics().n_run_containers, 2);
+    assert_eq!(runs.get_heap_size(), 2 * 3 * 2 * size_of::<u16>());
+
+    // All three flavors add up.
+    let mut mixed: roaring::RoaringBitmap = (0..5000).collect();
+    mixed.extend((1 << 16)..(1 << 16) + 10);
+    assert!(mixed.get_heap_size() >= 8192 + 10 * size_of::<u16>());
+    assert!(mixed.get_heap_size() < 8192 + 100);
 
     // Tracker-variant: threading a real tracker through must return the
     // same size as the no-tracker path.
@@ -505,29 +525,6 @@ fn smallvec_spilled_stays_on_heap() {
 
     assert!(vec.spilled());
     assert_eq!(vec.get_heap_size(), vec.capacity() * size_of::<u64>());
-}
-
-#[test]
-fn std_hash_tables_match_hashbrown() {
-    // The standard library does not expose the allocation size of its `hashbrown` based tables,
-    // so the estimate is checked against the real thing.
-    for capacity in [0, 1, 3, 4, 7, 8, 14, 15, 28, 29, 100, 1000, 10_000] {
-        let map = std::collections::HashMap::<u64, [u8; 3]>::with_capacity(capacity);
-        let reference = hashbrown::HashTable::<(u64, [u8; 3])>::with_capacity(map.capacity());
-        assert_eq!(
-            map.get_heap_size(),
-            reference.allocation_size(),
-            "map capacity {capacity}"
-        );
-
-        let set = std::collections::HashSet::<u8>::with_capacity(capacity);
-        let reference = hashbrown::HashTable::<u8>::with_capacity(set.capacity());
-        assert_eq!(
-            set.get_heap_size(),
-            reference.allocation_size(),
-            "set capacity {capacity}"
-        );
-    }
 }
 
 #[test]

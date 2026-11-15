@@ -20,7 +20,8 @@ get-size-derive2 = { workspace = true, optional = true }
 
 arcstr = { version = "1", default-features = false, features = ["substr"], optional = true }
 bytes = { version = "1", default-features = false, optional = true }
-chrono = { version = "0.4", default-features = false, optional = true }
+# 0.4.34 is the first version to export `TimeDelta`.
+chrono = { version = "0.4.34", default-features = false, optional = true }
 chrono-tz = { version = "0.10", default-features = false, optional = true }
 compact_str = { version = "0.10", default-features = false, optional = true }
 dashmap = { version = "6", default-features = false, optional = true }
@@ -35,7 +36,8 @@ portable-atomic = { version = "1", default-features = false, features = [
 ], optional = true }
 roaring = { version = "0.12", default-features = false, optional = true }
 smallvec = { version = "1", default-features = false, optional = true }
-thin-vec = { version = "0.2", default-features = false, optional = true }
+# 0.2.20 stopped allocating for zero sized elements, which the implementation relies on.
+thin-vec = { version = "0.2.20", default-features = false, optional = true }
 url = { version = "2", default-features = false, optional = true }
 uuid = { version = "1", default-features = false, optional = true }
 
@@ -86,6 +88,12 @@ orx-concurrent-vec = ["dep:orx-concurrent-vec"]
 # `parking_lot` itself requires `std`.
 parking_lot = ["dep:parking_lot", "std"]
 portable-atomic = ["dep:portable-atomic"]
+# Lets `portable-atomic` emulate its 64 and 128 bit atomics with a critical section on targets
+# without atomic compare-and-swap, and implements `GetSize` for them there.
+portable-atomic-critical-section = [
+    "portable-atomic",
+    "portable-atomic/critical-section",
+]
 roaring = ["dep:roaring"]
 smallvec = ["dep:smallvec"]
 thin-vec = ["dep:thin-vec"]
@@ -93,8 +101,8 @@ url = ["dep:url"]
 uuid = ["dep:uuid"]
 
 # Feature pack enabling everything which works without `std`, which is every feature except
-# `dashmap` and `parking_lot`. Keeps `no_std` builds, and the CI job guarding them, in sync with
-# the feature list above.
+# `dashmap`, `parking_lot` and the target specific `portable-atomic-critical-section`. Keeps
+# `no_std` builds, and the CI job guarding them, in sync with the feature list above.
 all-features-no-std = [
     "alloc",
     "derive",

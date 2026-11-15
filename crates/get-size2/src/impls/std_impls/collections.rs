@@ -1,7 +1,7 @@
 use core::alloc::Layout;
 use std::collections::{HashMap, HashSet};
 
-use crate::impls::layout::hash_table_size;
+use crate::impls::layout::std_hash_table_size;
 use crate::{GetSize, GetSizeTracker};
 
 impl<K, V, S> GetSize for HashMap<K, V, S>
@@ -18,8 +18,8 @@ where
                 (size + key_size + value_size, tracker)
             });
 
-        let allocation_size = hash_table_size(self.capacity(), Layout::new::<(K, V)>());
-        (size + allocation_size, tracker)
+        let allocation_size = std_hash_table_size(self.capacity(), Layout::new::<(K, V)>());
+        (size.saturating_add(allocation_size), tracker)
     }
 }
 
@@ -33,7 +33,7 @@ where
             (size + elem_size, tracker)
         });
 
-        let allocation_size = hash_table_size(self.capacity(), Layout::new::<T>());
-        (size + allocation_size, tracker)
+        let allocation_size = std_hash_table_size(self.capacity(), Layout::new::<T>());
+        (size.saturating_add(allocation_size), tracker)
     }
 }

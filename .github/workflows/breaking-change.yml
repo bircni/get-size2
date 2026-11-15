@@ -1,0 +1,96 @@
+name: Breaking Change
+
+# A workflow of its own, so that editing the title of a pull request, which this check depends
+# on, does not rerun the whole test suite.
+on:
+  pull_request:
+    branches:
+      - main
+    types: [opened, synchronize, reopened, edited]
+
+# The job only reads the repository, so the token does not need more than that.
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  semver:
+    name: Breaking Change
+    runs-on: ubuntu-latest
+
+    steps:
+      # The baseline is built from the base commit, which a shallow clone does not contain.
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install cargo-semver-checks
+        uses: taiki-e/install-action@4a76afe23f9e08d2d9550fb56e556444e8611d21 # v2.90.4
+        with:
+          tool: cargo-semver-checks
+
+      - name: Cache dependencies
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          shared-key: semver
+
+      # Decides whether the pull request breaks the public API of `get-size2` compared to its
+      # base, with every feature enabled. A breaking pull request has to say so with the `!` of a
+      # conventional commit title (`feat!: ...`), which is what the changelog is generated from.
+      #
+      # Limits: only the API is compared. A change of behavior, like different reported sizes,
+      # goes unnoticed, as do some API changes the tool has no lint for (for example a relaxed
+      # bound on a trait method). The derive macro is not covered either, since a proc-macro
+      # crate has no library API to compare. A passing job is therefore no proof of compatibility.
+      #
+      # The title and the base commit are passed through the environment, never interpolated
+      # into the script, since the title is written by the author of the pull request.
+      - name: Compare the public API with the base branch
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          status=0
+          cargo semver-checks -p get-size2 --all-features --release-type minor \
+            --baseline-rev "$BASE_SHA" || status=$?
+
+          marked=false
+          if [[ "$PR_TITLE" =~ ^[a-zA-Z]+(\([^\)]*\))?!: ]]; then
+            marked=true
+          fi
+
+          # 0: compatible, 100: at least one breaking change, anything else: the tool itself failed.
+          case "$status" in
+            0)
+              verdict="No breaking API change detected."
+              result=0
+              ;;
+            100)
+              if [[ "$marked" == true ]]; then
+                verdict="Breaking API change detected, and the title marks it as breaking."
+                result=0
+              else
+                verdict="Breaking API change detected, but the title does not mark it. Use a title like \`feat!: ...\`."
+                result=1
+              fi
+              ;;
+            *)
+              verdict="cargo-semver-checks failed with exit code $status, so there is no verdict. See the log."
+              result=1
+              ;;
+          esac
+
+          echo "### Breaking change check" >> "$GITHUB_STEP_SUMMARY"
+          echo "$verdict" >> "$GITHUB_STEP_SUMMARY"
+          if [[ "$result" -ne 0 ]]; then
+            echo "::error::$verdict"
+          else
+            echo "$verdict"
+          fi
+          exit "$result"

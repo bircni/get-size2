@@ -18,6 +18,15 @@ pub use get_size_derive2::*;
 mod impls;
 mod tracker;
 pub use tracker::*;
+
+/// Names the generated implementations rely on, whatever the scope of the deriving type holds.
+///
+/// Not part of the public API: the derive macro is its only user. Items are only ever added
+/// within a minor version, so that a newer derive macro of the same series keeps working.
+#[doc(hidden)]
+pub mod __private {
+    pub use core::primitive::usize;
+}
 // The test suite exercises the `std` implementations and is therefore only
 // compiled when the `std` feature is active.
 #[cfg(all(test, feature = "std"))]

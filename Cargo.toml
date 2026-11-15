@@ -10,14 +10,18 @@ version = "0.11.1"
 authors = ["Denis Kerp", "Nicolas"]
 
 [workspace.dependencies]
-syn = "3"
+# The lowest versions the derive macro has been built and tested with.
+syn = "3.0.4"
 get-size-derive2 = { version = "0.11.1", path = "crates/get-size-derive2" }
-quote = "1"
-proc-macro2 = "1"
-attribute-derive = "0.11"
+quote = "1.0.40"
+proc-macro2 = "1.0.95"
 
 [workspace.lints.rust]
 unsafe_code = "deny"
+# Set through `RUSTFLAGS` by users of `portable-atomic` on single core targets.
+unexpected_cfgs = { level = "warn", check-cfg = [
+    'cfg(portable_atomic_unsafe_assume_single_core)',
+] }
 deprecated = "warn"
 elided_lifetimes_in_paths = "warn"
 rust_2021_prelude_collisions = "warn"

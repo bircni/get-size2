@@ -3,27 +3,14 @@
 //! This crate is re-exported by `get-size2` and is meant to be used through its `derive` feature.
 //! See [`GetSize`](macro@GetSize) for the attribute reference.
 
-use attribute_derive::FromAttr;
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
-use quote::{format_ident, quote};
-
-/// The `#[get_size(...)]` attribute of a single field.
-#[derive(FromAttr, Default, Debug)]
-#[attribute(ident = get_size)]
-struct FieldAttribute {
-    #[attribute(conflicts = [size_fn, ignore])]
-    size: Option<usize>,
-    #[attribute(conflicts = [size, ignore])]
-    size_fn: Option<syn::Expr>,
-    #[attribute(conflicts = [size, size_fn])]
-    ignore: bool,
-}
+use quote::quote;
 
 /// How the heap size of a single field is determined.
 enum FieldSize {
     /// `#[get_size(size = ...)]`: a fixed number of bytes.
-    Fixed(usize),
+    Fixed(syn::LitInt),
     /// `#[get_size(size_fn = ...)]`: the result of calling a helper with a reference to the field.
     Helper(syn::ExprPath),
     /// `#[get_size(ignore)]`: nothing at all.
@@ -33,28 +20,129 @@ enum FieldSize {
 }
 
 impl FieldSize {
+    /// Parses the `#[get_size(...)]` attributes of a field.
     fn of(field: &syn::Field) -> syn::Result<Self> {
-        let attr = FieldAttribute::from_attributes(&field.attrs)
-            .map_err(|err| syn::Error::new_spanned(field, err.to_string()))?;
+        let mut size = None;
 
-        Ok(if let Some(size) = attr.size {
-            Self::Fixed(size)
-        } else if let Some(size_fn) = attr.size_fn {
-            // Parsing an expression, not a type like path, makes generic arguments require the
+        for attr in &field.attrs {
+            // Skip all attributes which do not belong to us. A bare `#[get_size]` asks for
+            // nothing.
+            if !attr.path().is_ident("get_size") || matches!(attr.meta, syn::Meta::Path(_)) {
+                continue;
+            }
+
+            attr.parse_nested_meta(|meta| {
+                let parsed = Self::parse(&meta)?;
+
+                // The three ways to handle a field exclude each other.
+                if size.replace(parsed).is_some() {
+                    return Err(meta.error(
+                        "`size`, `size_fn` and `ignore` are mutually exclusive, \
+                         only one of them may be given once",
+                    ));
+                }
+
+                Ok(())
+            })?;
+        }
+
+        Ok(size.unwrap_or(Self::Measured))
+    }
+
+    /// Parses a single `key`, `key = value` or `key(value)` of a field attribute.
+    fn parse(meta: &syn::meta::ParseNestedMeta<'_>) -> syn::Result<Self> {
+        if meta.path.is_ident("size") {
+            // The literal is checked to be a plain integer, but handed on as written: the
+            // compiler then reports one which does not fit the `usize` of the target, which may
+            // be narrower than the one of the host this macro runs on.
+            return Self::value::<syn::LitInt>(meta)
+                .ok()
+                // Any other suffix would have to be dropped, turning `0XFF` into 0.
+                .filter(|size| matches!(size.suffix(), "" | "usize"))
+                .filter(|size| size.base10_parse::<u128>().is_ok())
+                .map(Self::Fixed)
+                .ok_or_else(|| {
+                    meta.error(
+                        "`size` expects an integer literal for the number of bytes, without a \
+                         suffix or with `usize`, like `size = 1024`",
+                    )
+                });
+        }
+
+        if meta.path.is_ident("size_fn") {
+            // Parsed as an expression, not as a type like path, so generic arguments need the
             // turbofish, exactly as they do when the helper is called by hand.
-            let syn::Expr::Path(size_fn) = size_fn else {
-                return Err(syn::Error::new_spanned(
-                    size_fn,
-                    "`size_fn` expects the name of or the path to a function",
-                ));
+            return Self::value::<syn::ExprPath>(meta)
+                .map(Self::Helper)
+                .map_err(|_| {
+                    meta.error(
+                        "`size_fn` expects the name of or the path to a function, with generic \
+                         arguments written as `::<T>`",
+                    )
+                });
+        }
+
+        if meta.path.is_ident("ignore") {
+            const VALUE: &str = "`ignore` expects no value, or `true` or `false`";
+
+            // A plain `ignore` is the common spelling. `ignore = false` leaves the field to be
+            // measured as usual.
+            let ignore = if meta.input.peek(syn::Token![=]) {
+                Self::value::<syn::LitBool>(meta).map_err(|_| meta.error(VALUE))?
+            } else if meta.input.peek(syn::token::Paren) {
+                let content;
+                syn::parenthesized!(content in meta.input);
+
+                // Anything but a boolean is most likely meant as a list of generics.
+                if !content.is_empty() && !content.peek(syn::LitBool) {
+                    return Err(meta.error(
+                        "a list of generic parameters to ignore belongs on the struct or enum, \
+                         a field only takes a plain `ignore`",
+                    ));
+                }
+
+                content
+                    .parse::<syn::LitBool>()
+                    .ok()
+                    .filter(|_| content.is_empty())
+                    .ok_or_else(|| meta.error(VALUE))?
+            } else {
+                return Ok(Self::Ignored);
             };
 
-            Self::Helper(size_fn)
-        } else if attr.ignore {
-            Self::Ignored
+            return Ok(if ignore.value {
+                Self::Ignored
+            } else {
+                Self::Measured
+            });
+        }
+
+        Err(meta.error("the supported field attributes are `size`, `size_fn` and `ignore`"))
+    }
+
+    /// Parses the value of a `key = value` or of the equivalent `key(value)`, which has to be
+    /// followed by the next key or the end of the attribute.
+    fn value<T: syn::parse::Parse>(meta: &syn::meta::ParseNestedMeta<'_>) -> syn::Result<T> {
+        if meta.input.peek(syn::token::Paren) {
+            let content;
+            syn::parenthesized!(content in meta.input);
+            let value = content.parse()?;
+
+            return if content.is_empty() {
+                Ok(value)
+            } else {
+                Err(content.error("unexpected token"))
+            };
+        }
+
+        let input = meta.value()?;
+        let value = input.parse()?;
+
+        if input.is_empty() || input.peek(syn::Token![,]) {
+            Ok(value)
         } else {
-            Self::Measured
-        })
+            Err(input.error("unexpected token"))
+        }
     }
 
     /// Whether the generated code has to access the field's value.
@@ -89,40 +177,56 @@ impl Field {
     }
 }
 
+/// Names a local variable of the generated code.
+///
+/// Two things keep it apart from the names of the user. The mixed site span gives it the hygiene
+/// of a `macro_rules!` local, so it is neither captured by a field bound in an enum variant
+/// pattern nor does it shadow a helper function. That hygiene does not cover items though: a
+/// constant of the same name would turn the binding into a pattern, and a static must not be
+/// shadowed at all. The prefix, which is documented as reserved, keeps such items apart.
+fn local(name: &str) -> syn::Ident {
+    syn::Ident::new(
+        &format!("__get_size_{name}"),
+        proc_macro2::Span::mixed_site(),
+    )
+}
+
 /// Generates the body which adds up the heap size of `fields` and returns it with the tracker.
 ///
-/// `reference` builds the expression which evaluates to a reference to the given field. Every
-/// identifier introduced here is prefixed, so that it can never collide with the name of a field
-/// bound by an enum variant pattern.
+/// `reference` builds the expression which evaluates to a reference to the given field.
 fn sum_fields(fields: &[Field], reference: impl Fn(usize, &Field) -> TokenStream2) -> TokenStream2 {
+    let total = local("total");
+    let tracker = local("tracker");
+    let field_size = local("field_size");
+
     let additions = fields
         .iter()
         .enumerate()
         .filter_map(|(index, field)| match &field.size {
             FieldSize::Fixed(size) => Some(quote! {
-                let __get_size_total = __get_size_total + #size;
+                let #total = #total + #size;
             }),
             FieldSize::Helper(size_fn) => {
                 let reference = reference(index, field);
                 Some(quote! {
-                    let __get_size_total = __get_size_total + #size_fn(#reference);
+                    let #total = #total + #size_fn(#reference);
                 })
             }
             FieldSize::Ignored => None,
             FieldSize::Measured => {
                 let reference = reference(index, field);
                 Some(quote! {
-                    let (__get_size_field, __get_size_tracker) =
-                        ::get_size2::GetSize::get_heap_size_with_tracker(#reference, __get_size_tracker);
-                    let __get_size_total = __get_size_total + __get_size_field;
+                    let (#field_size, #tracker) =
+                        ::get_size2::GetSize::get_heap_size_with_tracker(#reference, #tracker);
+                    let #total = #total + #field_size;
                 })
             }
         });
 
     quote! {
-        let __get_size_total = 0usize;
+        let #total: ::get_size2::__private::usize = 0;
         #(#additions)*
-        (__get_size_total, __get_size_tracker)
+        (#total, #tracker)
     }
 }
 
@@ -131,7 +235,7 @@ fn variant_arm(variant: &syn::Variant) -> syn::Result<TokenStream2> {
     let ident = &variant.ident;
     let fields = Field::collect(&variant.fields)?;
 
-    let binding = |index: usize| format_ident!("__get_size_field_{index}");
+    let binding = |index: usize| local(&format!("field_{index}"));
 
     // Only the fields which are actually read get bound, the rest is covered by the `..` rest
     // pattern. The struct like pattern works for named, tuple and unit variants alike.
@@ -162,12 +266,21 @@ fn ignored_generics_of(attr: &syn::Attribute, ignored: &mut Vec<syn::Ident>) -> 
         return Ok(());
     }
 
+    // A bare `#[get_size]` asks for nothing, on a field as much as here.
+    if matches!(attr.meta, syn::Meta::Path(_)) {
+        return Ok(());
+    }
+
     attr.parse_nested_meta(|meta| {
         if meta.path.is_ident("ignore") && meta.input.peek(syn::token::Paren) {
-            return meta.parse_nested_meta(|generic| {
-                ignored.push(generic.path.require_ident()?.clone());
-                Ok(())
-            });
+            // The list may be empty, which generated code can easily produce.
+            let content;
+            syn::parenthesized!(content in meta.input);
+            let generics = content
+                .parse_terminated(<syn::Ident as syn::parse::Parse>::parse, syn::Token![,])?;
+
+            ignored.extend(generics);
+            return Ok(());
         }
 
         // Anything else would be accepted without having any effect.
@@ -180,7 +293,10 @@ fn ignored_generics_of(attr: &syn::Attribute, ignored: &mut Vec<syn::Ident>) -> 
 
 /// Collects the generics which shall not receive a `GetSize` bound.
 ///
-/// Fields are not searched: their attributes are parsed by [`FieldAttribute`], which only knows
+/// The list is usually given on the struct or enum itself. One on a variant is accepted as well
+/// and applies to the whole enum, as there is only one implementation to bound.
+///
+/// Fields are not searched: their attributes are parsed by [`FieldSize::of`], which only knows
 /// the plain `ignore` flag.
 fn ignored_generics(ast: &syn::DeriveInput) -> syn::Result<Vec<syn::Ident>> {
     let variants = match &ast.data {
@@ -239,15 +355,19 @@ fn add_trait_bounds(mut generics: syn::Generics, ignored: &[syn::Ident]) -> syn:
 #[doc = include_str!("./derive.md")]
 #[proc_macro_derive(GetSize, attributes(get_size))]
 pub fn derive_get_size(input: TokenStream) -> TokenStream {
-    match derive_get_size_impl(input) {
+    match expand(input.into()) {
         Ok(tokens) => tokens.into(),
         Err(err) => err.to_compile_error().into(),
     }
 }
 
-fn derive_get_size_impl(input: TokenStream) -> syn::Result<TokenStream2> {
+/// Generates the `GetSize` implementation for the type definition in `input`.
+///
+/// Works on `proc_macro2` tokens, so it can be called from the unit tests, where the compiler's
+/// own token types are not available.
+fn expand(input: TokenStream2) -> syn::Result<TokenStream2> {
     // Construct a representation of Rust code as a syntax tree that we can manipulate.
-    let ast: syn::DeriveInput = syn::parse(input)?;
+    let ast: syn::DeriveInput = syn::parse2(input)?;
 
     // Traverse the parsed data to generate the body measuring the fields. Types without any
     // field own no heap memory, so the default implementation of the trait is already correct.
@@ -290,12 +410,13 @@ fn derive_get_size_impl(input: TokenStream) -> syn::Result<TokenStream2> {
     let generics = add_trait_bounds(ast.generics.clone(), &ignored);
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
+    let tracker = local("tracker");
     let method = body.map(|body| {
         quote! {
             fn get_heap_size_with_tracker<__GetSizeTracker: ::get_size2::GetSizeTracker>(
                 &self,
-                __get_size_tracker: __GetSizeTracker,
-            ) -> (usize, __GetSizeTracker) {
+                #tracker: __GetSizeTracker,
+            ) -> (::get_size2::__private::usize, __GetSizeTracker) {
                 #body
             }
         }
@@ -306,4 +427,315 @@ fn derive_get_size_impl(input: TokenStream) -> syn::Result<TokenStream2> {
             #method
         }
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use quote::quote;
+
+    use super::{TokenStream2, expand};
+
+    /// The message of the compile error `input` is rejected with.
+    fn error(input: TokenStream2) -> String {
+        match expand(input) {
+            Ok(tokens) => panic!("expected an error, but got: {tokens}"),
+            Err(err) => err.to_string(),
+        }
+    }
+
+    /// The generated implementation, with all whitespace removed to be independent of how
+    /// tokens are printed.
+    fn expanded(input: TokenStream2) -> String {
+        match expand(input) {
+            Ok(tokens) => tokens.to_string().split_whitespace().collect(),
+            Err(err) => panic!("expected an implementation, but got the error: {err}"),
+        }
+    }
+
+    const MISPLACED: &str = "only `ignore(...)` with a list of generic parameters is supported \
+                             here, `ignore`, `size` and `size_fn` belong on a field";
+
+    #[test]
+    fn rejects_field_attributes_on_containers() {
+        for attribute in [
+            quote! { ignore },
+            quote! { size = 5 },
+            quote! { size_fn = helper },
+            quote! { bogus },
+            quote! { skip(T) },
+            quote! { ignore = "T" },
+        ] {
+            assert_eq!(
+                error(quote! { #[get_size(#attribute)] struct Test<T> { value: T } }),
+                MISPLACED,
+                "struct level `{attribute}`"
+            );
+            assert_eq!(
+                error(quote! { enum Test<T> { #[get_size(#attribute)] Variant(T) } }),
+                MISPLACED,
+                "variant level `{attribute}`"
+            );
+        }
+    }
+
+    #[test]
+    fn rejects_unknown_ignored_generics() {
+        assert_eq!(
+            error(quote! { #[get_size(ignore(U))] struct Test<T> { value: T } }),
+            "`U` is not a generic type parameter of `Test`"
+        );
+        assert_eq!(
+            error(quote! { #[get_size(ignore(T))] struct Test<'T> { value: &'T str } }),
+            "`T` is not a generic type parameter of `Test`"
+        );
+        assert_eq!(
+            error(quote! { enum Test<T> { #[get_size(ignore(U))] Variant(T) } }),
+            "`U` is not a generic type parameter of `Test`"
+        );
+    }
+
+    #[test]
+    fn rejects_unions() {
+        assert_eq!(
+            error(quote! { union Test { value: u8 } }),
+            "Deriving GetSize for unions is currently not supported."
+        );
+    }
+
+    #[test]
+    fn rejects_conflicting_and_malformed_field_attributes() {
+        const EXCLUSIVE: &str = "`size`, `size_fn` and `ignore` are mutually exclusive, only one \
+                                 of them may be given once";
+        const SIZE: &str = "`size` expects an integer literal for the number of bytes, without \
+                            a suffix or with `usize`, like `size = 1024`";
+        const IGNORE: &str = "`ignore` expects no value, or `true` or `false`";
+        const SIZE_FN: &str = "`size_fn` expects the name of or the path to a function, with \
+                               generic arguments written as `::<T>`";
+
+        for (attribute, message) in [
+            (quote! { size = 1, ignore }, EXCLUSIVE),
+            (quote! { size = 1, size_fn = helper }, EXCLUSIVE),
+            (quote! { size_fn = helper, ignore }, EXCLUSIVE),
+            (quote! { ignore, ignore }, EXCLUSIVE),
+            (quote! { size = 1, size = 1 }, EXCLUSIVE),
+            (
+                quote! { bogus },
+                "the supported field attributes are `size`, `size_fn` and `ignore`",
+            ),
+            (quote! { size = "one" }, SIZE),
+            (quote! { size }, SIZE),
+            (quote! { size = -1 }, SIZE),
+            (quote! { size = 0XFF }, SIZE),
+            (quote! { size = 300u8 }, SIZE),
+            (quote! { size = 1.5 }, SIZE),
+            (quote! { size = 1u64 }, SIZE),
+            (quote! { size = BYTES }, SIZE),
+            (quote! { size = 1 + 1 }, SIZE),
+            (
+                quote! { size = 9999999999999999999999999999999999999999 },
+                SIZE,
+            ),
+            (quote! { size(1, 2) }, SIZE),
+            (quote! { size_fn(helper, other) }, SIZE_FN),
+            (quote! { size_fn }, SIZE_FN),
+            (
+                quote! { ignore(T) },
+                "a list of generic parameters to ignore belongs on the struct or enum, a field \
+                 only takes a plain `ignore`",
+            ),
+            (quote! { ignore = 1 }, IGNORE),
+            (quote! { ignore() }, IGNORE),
+            (quote! { ignore(true, false) }, IGNORE),
+            (quote! { ignore(true,) }, IGNORE),
+            (quote! { size_fn = helper() }, SIZE_FN),
+            (quote! { size_fn = helper<u8> }, SIZE_FN),
+            (quote! { size_fn = |value| 0 }, SIZE_FN),
+            (quote! { size_fn = "helper" }, SIZE_FN),
+        ] {
+            assert_eq!(
+                error(quote! { struct Test { #[get_size(#attribute)] value: u8 } }),
+                message,
+                "field level `{attribute}`"
+            );
+        }
+
+        // Spread over several attributes they conflict just the same.
+        assert_eq!(
+            error(quote! {
+                struct Test { #[get_size(size = 1)] #[get_size(ignore)] value: u8 }
+            }),
+            EXCLUSIVE
+        );
+    }
+
+    #[test]
+    fn accepts_the_lenient_spellings() {
+        // A bare attribute and an empty list ask for nothing.
+        assert_eq!(
+            expanded(quote! { #[get_size] #[get_size()] #[get_size(ignore())] struct Test<T>; }),
+            "impl<T:::get_size2::GetSize>::get_size2::GetSizeforTest<T>{}"
+        );
+
+        let implementation = expanded(quote! {
+            struct Test {
+                #[get_size]
+                bare: u8,
+                #[get_size()]
+                empty: u8,
+                #[get_size(ignore = false)]
+                unignored: u8,
+                #[get_size(ignore = true)]
+                dropped: u8,
+                #[get_size(size = 0x10usize,)]
+                fixed: u8,
+                // The parenthesised spellings are equivalent.
+                #[get_size(size(0b11))]
+                parenthesised: u8,
+                #[get_size(size_fn(helpers::len))]
+                helped: u8,
+                #[get_size(ignore(true))]
+                skipped: u8,
+                #[get_size(ignore(false))]
+                retained: u8,
+                #[other(attribute)]
+                foreign: u8,
+            }
+        });
+
+        for measured in [
+            "&self.bare",
+            "&self.empty",
+            "&self.unignored",
+            "&self.retained",
+            "&self.foreign",
+        ] {
+            assert!(
+                implementation.contains(measured),
+                "{measured}: {implementation}"
+            );
+        }
+        assert!(!implementation.contains("self.dropped"), "{implementation}");
+        assert!(!implementation.contains("self.skipped"), "{implementation}");
+        assert!(implementation.contains("+0x10usize;"), "{implementation}");
+        assert!(implementation.contains("+0b11;"), "{implementation}");
+        assert!(
+            implementation.contains("helpers::len(&self.helped)"),
+            "{implementation}"
+        );
+    }
+
+    #[test]
+    fn ignored_generics_receive_no_bound() {
+        let implementation = expanded(quote! {
+            #[get_size(ignore(B, N))]
+            struct Test<A, B, const N: usize> {
+                first: A,
+                #[get_size(ignore)]
+                second: [B; N],
+            }
+        });
+
+        assert!(
+            implementation.starts_with(
+                "impl<A:::get_size2::GetSize,B,constN:usize>::get_size2::GetSizeforTest<A,B,N>{"
+            ),
+            "{implementation}"
+        );
+        assert!(implementation.contains("&self.first"), "{implementation}");
+        assert!(!implementation.contains("&self.second"), "{implementation}");
+    }
+
+    #[test]
+    fn fieldless_types_keep_their_generics() {
+        assert_eq!(
+            expanded(quote! { struct Marker<const N: usize>; }),
+            "impl<constN:usize>::get_size2::GetSizeforMarker<N>{}"
+        );
+        assert_eq!(
+            expanded(quote! { enum Never<T> {} }),
+            "impl<T:::get_size2::GetSize>::get_size2::GetSizeforNever<T>{}"
+        );
+    }
+
+    #[test]
+    fn field_attributes_select_how_a_field_is_measured() {
+        let implementation = expanded(quote! {
+            struct Test {
+                measured: String,
+                #[get_size(size = 7)]
+                fixed: String,
+                #[get_size(size_fn = helpers::len::<String>)]
+                helped: String,
+                #[get_size(ignore)]
+                ignored: String,
+            }
+        });
+
+        assert!(
+            implementation.contains("&self.measured"),
+            "{implementation}"
+        );
+        assert!(implementation.contains("+7;"), "{implementation}");
+        assert!(
+            implementation.contains("helpers::len::<String>(&self.helped)"),
+            "{implementation}"
+        );
+        assert!(!implementation.contains("self.fixed"), "{implementation}");
+        assert!(!implementation.contains("self.ignored"), "{implementation}");
+    }
+
+    #[test]
+    fn generated_code_only_names_the_trait_crate() {
+        // Every path of the generated code starts at `::get_size2`. A consumer may shadow any
+        // other name, even depend on a crate called `core`.
+        let implementation = expanded(quote! {
+            enum Test<T> {
+                Tuple(T, #[get_size(size = 1)] u8),
+                Named { value: T },
+            }
+        });
+
+        assert!(
+            implementation.contains("->(::get_size2::__private::usize,__GetSizeTracker){"),
+            "{implementation}"
+        );
+        assert!(
+            implementation.contains("let__get_size_total:::get_size2::__private::usize=0;"),
+            "{implementation}"
+        );
+
+        let foreign_paths = implementation
+            .split("::")
+            .skip(1)
+            .filter(|rest| rest.starts_with(|first: char| first.is_ascii_lowercase()))
+            .filter(|rest| !rest.starts_with("get_size2") && !rest.starts_with("__private"))
+            .filter(|rest| !rest.starts_with("get_heap_size_with_tracker"))
+            .filter(|rest| !rest.starts_with("usize"))
+            .count();
+        assert_eq!(foreign_paths, 0, "{implementation}");
+    }
+
+    #[test]
+    fn variants_only_bind_the_fields_they_read() {
+        let implementation = expanded(quote! {
+            enum Test {
+                Unit,
+                Tuple(#[get_size(ignore)] u8, String),
+                Named { tracker: String, #[get_size(size = 3)] fixed: u8 },
+            }
+        });
+
+        assert!(
+            implementation.contains("Self::Unit{..}=>"),
+            "{implementation}"
+        );
+        assert!(
+            implementation.contains("Self::Tuple{1:__get_size_field_1,..}=>"),
+            "{implementation}"
+        );
+        assert!(
+            implementation.contains("Self::Named{tracker:__get_size_field_0,..}=>"),
+            "{implementation}"
+        );
+    }
 }

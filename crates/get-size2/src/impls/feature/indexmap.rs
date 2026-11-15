@@ -15,7 +15,10 @@ where
                 (size + key_size + value_size, tracker)
             });
 
-        (size + index_map_size::<K, V>(self.capacity()), tracker)
+        (
+            size.saturating_add(index_map_size::<K, V>(self.capacity())),
+            tracker,
+        )
     }
 }
 
@@ -29,6 +32,9 @@ where
             (size + elem_size, tracker)
         });
 
-        (size + index_map_size::<T, ()>(self.capacity()), tracker)
+        (
+            size.saturating_add(index_map_size::<T, ()>(self.capacity())),
+            tracker,
+        )
     }
 }

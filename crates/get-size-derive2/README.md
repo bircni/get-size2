@@ -37,7 +37,7 @@ For fields whose type does not implement `GetSize`, the `#[get_size(...)]` attri
 | `#[get_size(ignore)]` | Field | Skips the field, contributing `0` |
 | `#[get_size(size = 1024)]` | Field | Accounts the field with a fixed number of bytes |
 | `#[get_size(size_fn = my_helper)]` | Field | Calls `my_helper(&field)` to determine the heap size, a path like `helpers::my_helper` works as well |
-| `#[get_size(ignore(A, B))]` | Struct or enum | Drops the `GetSize` bound on the listed generic types |
+| `#[get_size(ignore(A, B))]` | Struct or enum | Drops the `GetSize` bound on the listed generic types. Also accepted on a variant, where it applies to the whole enum |
 
 ## Documentation
 

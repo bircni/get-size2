@@ -12,13 +12,31 @@ impl GetSize for portable_atomic::AtomicBool {}
 impl GetSize for portable_atomic::AtomicI8 {}
 impl GetSize for portable_atomic::AtomicI16 {}
 impl GetSize for portable_atomic::AtomicI32 {}
-impl GetSize for portable_atomic::AtomicI64 {}
-impl GetSize for portable_atomic::AtomicI128 {}
 impl GetSize for portable_atomic::AtomicIsize {}
 impl GetSize for portable_atomic::AtomicU8 {}
 impl GetSize for portable_atomic::AtomicU16 {}
 impl GetSize for portable_atomic::AtomicU32 {}
-impl GetSize for portable_atomic::AtomicU64 {}
-impl GetSize for portable_atomic::AtomicU128 {}
 impl GetSize for portable_atomic::AtomicUsize {}
 impl<T> GetSize for portable_atomic::AtomicPtr<T> {}
+
+// The 64 and 128 bit atomics are emulated by a fallback wherever they are not native. That
+// fallback needs compare-and-swap, which a few bare metal targets (like `thumbv6m`) lack. There
+// the types only exist once `portable-atomic` is told how to disable interrupts: through its
+// `critical-section` feature, which the `portable-atomic-critical-section` feature of this
+// crate enables, or through its `portable_atomic_unsafe_assume_single_core` cfg.
+#[cfg(any(
+    target_has_atomic = "ptr",
+    // Single core architectures, for which `portable-atomic` always disables interrupts itself.
+    target_arch = "avr",
+    target_arch = "msp430",
+    feature = "portable-atomic-critical-section",
+    portable_atomic_unsafe_assume_single_core,
+))]
+mod wide {
+    use crate::GetSize;
+
+    impl GetSize for portable_atomic::AtomicI64 {}
+    impl GetSize for portable_atomic::AtomicI128 {}
+    impl GetSize for portable_atomic::AtomicU64 {}
+    impl GetSize for portable_atomic::AtomicU128 {}
+}

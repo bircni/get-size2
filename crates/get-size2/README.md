@@ -35,7 +35,7 @@ Only bytes *owned* by a value are counted, so anything merely borrowed through a
 
 ## Features
 
-`std` is enabled by default and implies `alloc`; disable both for `no_std` targets:
+`std` is enabled by default and implies `alloc`; disable the default features for `no_std` targets, and enable `alloc` again if one is available:
 
 ```sh
 cargo add get-size2 --no-default-features --features alloc,derive
@@ -46,9 +46,9 @@ cargo add get-size2 --no-default-features --features alloc,derive
 | `std` _(default)_ | Implementations for `std` types like `HashMap`, `PathBuf` or `Mutex` |
 | `alloc` | Implementations for `alloc` types like `Vec`, `String`, `Box`, `Rc` and `Arc` |
 | `derive` | The `#[derive(GetSize)]` macro |
-| `all-features-no-std` | Every feature which works without `std` |
+| `all-features-no-std` | Every feature which works without `std`, except the target specific `portable-atomic-critical-section` |
 
-Implementations for third party types are available behind the `arcstr`, `bytes`, `chrono`, `chrono-tz`, `compact-str`, `dashmap`, `half`, `hashbrown`, `indexmap`, `ordermap`, `orx-concurrent-vec`, `parking_lot`, `portable-atomic`, `roaring`, `smallvec`, `thin-vec`, `url` and `uuid` features. `dashmap` and `parking_lot` require `std`. `arcstr` enables `alloc` and supports both `ArcStr` and `Substr`.
+Implementations for third party types are available behind the `arcstr`, `bytes`, `chrono`, `chrono-tz`, `compact-str`, `dashmap`, `half`, `hashbrown`, `indexmap`, `ordermap`, `orx-concurrent-vec`, `parking_lot`, `portable-atomic`, `roaring`, `smallvec`, `thin-vec`, `url` and `uuid` features. `dashmap` and `parking_lot` require `std`. `portable-atomic-critical-section` additionally covers the 64 and 128 bit atomics on targets without atomic compare-and-swap. `arcstr` enables `alloc` and supports both `ArcStr` and `Substr`.
 
 ## Documentation
 
@@ -56,7 +56,7 @@ The full guide is on [docs.rs](https://docs.rs/get-size2): the ownership model a
 
 ## Minimum supported Rust version
 
-The crate itself and the `derive` feature build with Rust 1.85. The optional integrations follow the requirements of the crates they integrate, which may be newer, currently up to Rust 1.90 for `roaring`.
+The crate itself and the `derive` feature build with Rust 1.85. The optional integrations follow the requirements of the crates they integrate, which are often newer; `cargo` reports the version a feature needs.
 
 ## License
 
