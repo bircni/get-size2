@@ -21,7 +21,8 @@ pub use tracker::*;
 
 /// Names the generated implementations rely on, whatever the scope of the deriving type holds.
 ///
-/// Not part of the public API: the derive macro of the same version is its only user.
+/// Not part of the public API: the derive macro is its only user. Items are only ever added
+/// within a minor version, so that a newer derive macro of the same series keeps working.
 #[doc(hidden)]
 pub mod __private {
     pub use core::primitive::usize;

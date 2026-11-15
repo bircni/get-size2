@@ -392,8 +392,17 @@ fn test_roaring_bitmap() {
     run.optimize();
     let stats = run.statistics();
     assert_eq!(stats.n_run_containers, 1);
-    assert!(run.get_heap_size() >= 2 * size_of::<u16>());
-    assert!(run.get_heap_size() < 16);
+    // One run of two `u16`. Regression test: the serialized size also holds a two byte count.
+    assert_eq!(run.get_heap_size(), 2 * size_of::<u16>());
+
+    // Three runs in each of two containers.
+    let mut runs: roaring::RoaringBitmap = [0u32, 1 << 16]
+        .into_iter()
+        .flat_map(|base| (0..3).flat_map(move |run| (base + run * 1000)..(base + run * 1000 + 500)))
+        .collect();
+    runs.optimize();
+    assert_eq!(runs.statistics().n_run_containers, 2);
+    assert_eq!(runs.get_heap_size(), 2 * 3 * 2 * size_of::<u16>());
 
     // All three flavors add up.
     let mut mixed: roaring::RoaringBitmap = (0..5000).collect();

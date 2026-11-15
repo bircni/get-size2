@@ -277,7 +277,9 @@ assert_eq!(data.get_heap_size(), 5 + 100 + 50);
 
 The macro reports a compile error when it is used on a union, when a field is given more than one of `size`, `size_fn` and `ignore`, or when an attribute is not one of those listed above. A field whose type does not implement [`GetSize`] and which is not covered by an attribute also fails to compile.
 
-Names starting with `__get_size_` are reserved for the generated code. A constant, static or unit struct named like that in the scope of the deriving type clashes with it.
+Names starting with `__get_size_` are reserved for the generated code. A constant, a static, a unit or tuple struct, an enum variant imported by name or a const generic parameter named like that clashes with it when it is in the scope of the deriving type.
+
+The generated code refers to the trait crate as `::get_size2`, hidden items included. A crate which depends on it under another name has to bring it back with `extern crate other_name as get_size2;`.
 
 The field attributes are rejected on a struct, an enum or a variant, where they would have no effect:
 

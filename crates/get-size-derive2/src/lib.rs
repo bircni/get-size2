@@ -685,6 +685,37 @@ mod tests {
     }
 
     #[test]
+    fn generated_code_only_names_the_trait_crate() {
+        // Every path of the generated code starts at `::get_size2`. A consumer may shadow any
+        // other name, even depend on a crate called `core`.
+        let implementation = expanded(quote! {
+            enum Test<T> {
+                Tuple(T, #[get_size(size = 1)] u8),
+                Named { value: T },
+            }
+        });
+
+        assert!(
+            implementation.contains("->(::get_size2::__private::usize,__GetSizeTracker){"),
+            "{implementation}"
+        );
+        assert!(
+            implementation.contains("let__get_size_total:::get_size2::__private::usize=0;"),
+            "{implementation}"
+        );
+
+        let foreign_paths = implementation
+            .split("::")
+            .skip(1)
+            .filter(|rest| rest.starts_with(|first: char| first.is_ascii_lowercase()))
+            .filter(|rest| !rest.starts_with("get_size2") && !rest.starts_with("__private"))
+            .filter(|rest| !rest.starts_with("get_heap_size_with_tracker"))
+            .filter(|rest| !rest.starts_with("usize"))
+            .count();
+        assert_eq!(foreign_paths, 0, "{implementation}");
+    }
+
+    #[test]
     fn variants_only_bind_the_fields_they_read() {
         let implementation = expanded(quote! {
             enum Test {
