@@ -86,6 +86,12 @@ orx-concurrent-vec = ["dep:orx-concurrent-vec"]
 # `parking_lot` itself requires `std`.
 parking_lot = ["dep:parking_lot", "std"]
 portable-atomic = ["dep:portable-atomic"]
+# Lets `portable-atomic` emulate its 64 and 128 bit atomics with a critical section on targets
+# without atomic compare-and-swap, and implements `GetSize` for them there.
+portable-atomic-critical-section = [
+    "portable-atomic",
+    "portable-atomic/critical-section",
+]
 roaring = ["dep:roaring"]
 smallvec = ["dep:smallvec"]
 thin-vec = ["dep:thin-vec"]

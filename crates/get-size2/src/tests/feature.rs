@@ -267,6 +267,19 @@ fn thin_vec() {
             + std::mem::size_of::<String>() * vec.len()
             + std::mem::size_of::<usize>() * 2
     );
+
+    // Regression test: zero sized elements only need the header, which reported an unbounded
+    // capacity, and the header is padded up to the alignment of the elements.
+    let mut zero_sized = thin_vec::ThinVec::<()>::new();
+    assert_eq!(zero_sized.get_heap_size(), 0);
+    zero_sized.push(());
+    assert_eq!(zero_sized.get_heap_size(), 2 * size_of::<usize>());
+
+    let aligned = thin_vec::ThinVec::<u128>::with_capacity(4);
+    assert_eq!(
+        aligned.get_heap_size(),
+        (2 * size_of::<usize>()).max(align_of::<u128>()) + aligned.capacity() * size_of::<u128>()
+    );
 }
 
 #[test]
@@ -360,7 +373,12 @@ fn test_roaring_bitmap() {
     let stats = dense.statistics();
     assert_eq!(stats.n_containers, 1);
     assert_eq!(stats.n_array_containers, 1);
-    assert_eq!(dense.get_heap_size(), 99 * size_of::<u16>());
+    assert!(dense.get_heap_size() >= 99 * size_of::<u16>());
+    // Regression test: the statistics count the capacity as if the values were `u32`.
+    assert_eq!(
+        dense.get_heap_size() as u64,
+        stats.n_bytes_array_containers / 2
+    );
 
     // A bitset container kicks in past 4096 entries and always allocates 8 KiB. Regression
     // test: the byte total of `statistics()` reports eight times as much.
@@ -381,7 +399,8 @@ fn test_roaring_bitmap() {
     // All three flavors add up.
     let mut mixed: roaring::RoaringBitmap = (0..5000).collect();
     mixed.extend((1 << 16)..(1 << 16) + 10);
-    assert_eq!(mixed.get_heap_size(), 8192 + 10 * size_of::<u16>());
+    assert!(mixed.get_heap_size() >= 8192 + 10 * size_of::<u16>());
+    assert!(mixed.get_heap_size() < 8192 + 100);
 
     // Tracker-variant: threading a real tracker through must return the
     // same size as the no-tracker path.

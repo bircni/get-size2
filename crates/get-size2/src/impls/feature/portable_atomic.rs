@@ -20,10 +20,15 @@ impl GetSize for portable_atomic::AtomicUsize {}
 impl<T> GetSize for portable_atomic::AtomicPtr<T> {}
 
 // The 64 and 128 bit atomics are emulated by a fallback wherever they are not native. That
-// fallback needs compare-and-swap, which a few bare metal targets (like `thumbv6m`) lack unless
-// `portable-atomic` is told how to disable interrupts through one of its own features. Whether
-// that is the case is not visible from here, so on such targets these types are left out.
-#[cfg(target_has_atomic = "ptr")]
+// fallback needs compare-and-swap, which a few bare metal targets (like `thumbv6m`) lack. There
+// the types only exist once `portable-atomic` is told how to disable interrupts: through its
+// `critical-section` feature, which the `portable-atomic-critical-section` feature of this
+// crate enables, or through its `portable_atomic_unsafe_assume_single_core` cfg.
+#[cfg(any(
+    target_has_atomic = "ptr",
+    feature = "portable-atomic-critical-section",
+    portable_atomic_unsafe_assume_single_core,
+))]
 mod wide {
     use crate::GetSize;
 

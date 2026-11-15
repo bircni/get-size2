@@ -93,13 +93,19 @@ impl AddressHasher {
     // The 64 bit golden ratio constant, as used by Fibonacci hashing.
     const MULTIPLIER: u64 = 0x9E37_79B9_7F4A_7C15;
 
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "the product is split into its two halves on purpose"
+    )]
     const fn mix(&mut self, value: u64) {
-        let product = (self.0 ^ value).wrapping_mul(Self::MULTIPLIER);
-
         // Allocations are aligned, so the lowest bits of an address are always zero and stay
-        // zero after the multiplication, while its upper bits are mixed best. A hash table
-        // selects the bucket with the low bits of the hash, so the upper bits are rotated down.
-        self.0 = product.rotate_left(26);
+        // zero in the low half of a product, while its high half is mixed well. A hash table
+        // takes the bucket from the low bits of the hash and a tag from its top bits, on a 32
+        // bit target both from the low half. Folding the two halves of the full 128 bit
+        // product onto each other leaves no weak bit at either end.
+        let product = (self.0 ^ value) as u128 * Self::MULTIPLIER as u128;
+
+        self.0 = (product as u64) ^ ((product >> 64) as u64);
     }
 }
 
@@ -205,17 +211,52 @@ mod tests {
 
     #[test]
     fn address_hasher_spreads_aligned_addresses() {
+        const COUNT: usize = 1 << 16;
+
         // Allocations are aligned, so their addresses only differ above the lowest bits. A hash
-        // table selects the bucket with the low bits of the hash and tags it with the top seven,
-        // so both have to vary for the addresses of neighboring allocations.
-        for stride in [8, 16, 64, 4096] {
-            let hashes: std::vec::Vec<u64> = (0..4096).map(|index| hash(index * stride)).collect();
+        // table selects the bucket with the low bits of the hash, the more of them the larger it
+        // grows, and tags the entry with seven bits from the top: of the `u64` on a 64 bit
+        // target, and of its lower half on a 32 bit one. All of them have to vary for the
+        // addresses of neighboring allocations.
+        for (stride, base) in [
+            (8, 0),
+            (16, 0x2000_0000),
+            (32, 0x1234_0000),
+            (48, 0x5555_0000),
+            (64, 0x1_0000),
+            (4096, 0x7000_0000),
+        ] {
+            let hashes: std::vec::Vec<u64> = (0..COUNT)
+                .map(|index| hash(base + index * stride))
+                .collect();
+            let distinct = |part: fn(u64) -> u64| {
+                hashes
+                    .iter()
+                    .map(|hash| part(*hash))
+                    .collect::<HashSet<_>>()
+                    .len()
+            };
 
-            let low: HashSet<u64> = hashes.iter().map(|hash| hash & 0xFFF).collect();
-            let top: HashSet<u64> = hashes.iter().map(|hash| hash >> 57).collect();
+            // A random function fills about 41 300 of the 65 536 buckets.
+            let buckets = distinct(|hash| hash & 0xFFFF);
+            assert!(buckets > 36_000, "stride {stride}: {buckets} buckets");
 
-            assert!(low.len() > 2048, "stride {stride}: {} buckets", low.len());
-            assert_eq!(top.len(), 128, "stride {stride}");
+            // The bits a table of many millions of entries adds to its bucket index.
+            let upper_buckets = distinct(|hash| (hash >> 20) & 0xFFF);
+            assert!(upper_buckets > 4000, "stride {stride}: {upper_buckets}");
+
+            assert_eq!(distinct(|hash| hash >> 57), 128, "stride {stride}: tags");
+            assert_eq!(
+                distinct(|hash| (hash & 0xFFFF_FFFF) >> 25),
+                128,
+                "stride {stride}: tags on a 32 bit target"
+            );
+
+            // No bit may be the same for every address.
+            let always_set = hashes.iter().fold(u64::MAX, |bits, hash| bits & hash);
+            let ever_set = hashes.iter().fold(0, |bits, hash| bits | hash);
+            assert_eq!(always_set, 0, "stride {stride}");
+            assert_eq!(ever_set, u64::MAX, "stride {stride}");
         }
     }
 }

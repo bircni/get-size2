@@ -240,10 +240,15 @@ fn std_hash_tables_are_a_lower_bound_after_removals() {
 
         let (allocated, reported) = measure(|| {
             let mut map: HashMap<u64, u64> = keys(count).map(|key| (key, key)).collect();
-            map.retain(|key, _| *key == 0);
+            map.retain(|key, _| *key % 2 == 0);
             map
         });
-        assert!(reported <= allocated, "HashMap retaining one of {count}");
+        assert!(reported <= allocated, "HashMap retaining half of {count}");
+        // The remaining entries are always accounted for.
+        assert!(
+            reported >= count / 2 * size_of::<(u64, u64)>(),
+            "HashMap retaining half of {count}"
+        );
     }
 }
 
@@ -353,6 +358,17 @@ fn small_buffers_respect_their_inline_storage() {
         compact_str::CompactString::from("a string which is too long to be stored inline")
     });
     exact("ThinVec empty", thin_vec::ThinVec::<u64>::new);
+    exact("ThinVec<()>", || {
+        let mut vec = thin_vec::ThinVec::new();
+        vec.push(());
+        vec
+    });
+    exact("ThinVec<Aligned>", || {
+        thin_vec::ThinVec::<Aligned>::with_capacity(3)
+    });
+    exact("ThinVec<String>", || {
+        thin_vec::thin_vec![String::from("one"), String::from("two")]
+    });
     exact("ThinVec<u64>", || {
         thin_vec::ThinVec::<u64>::with_capacity(10)
     });
@@ -387,6 +403,11 @@ fn integrations_with_private_bookkeeping_are_a_lower_bound() {
         (0..500_000u32)
             .step_by(50)
             .collect::<roaring::RoaringBitmap>()
+    });
+    lower_bound("RoaringBitmap of shrunk array containers", || {
+        let mut bitmap: roaring::RoaringBitmap = (0..4000u32).collect();
+        bitmap.remove_range(10..4000);
+        bitmap
     });
     lower_bound("ConcurrentVec<u64>", || {
         let vec = orx_concurrent_vec::ConcurrentVec::new();

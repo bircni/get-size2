@@ -121,7 +121,7 @@ If a field's type does not implement [`GetSize`], the `#[get_size(...)]` attribu
 | `#[get_size(ignore)]` | Field | Skips the field, contributing `0` |
 | `#[get_size(size = 1024)]` | Field | Accounts the field with a fixed number of bytes |
 | `#[get_size(size_fn = my_helper)]` | Field | Calls `my_helper(&field)` to determine the heap size, a path like `helpers::my_helper` works as well |
-| `#[get_size(ignore(A, B))]` | Struct or enum | Drops the [`GetSize`] bound on the listed generic types |
+| `#[get_size(ignore(A, B))]` | Struct or enum | Drops the [`GetSize`] bound on the listed generic types. Also accepted on a variant, where it applies to the whole enum |
 
 The three field attributes work on the fields of structs, of tuple structs and of enum variants alike.
 
@@ -275,7 +275,7 @@ assert_eq!(data.get_heap_size(), 5 + 100 + 50);
 
 # Errors
 
-The macro reports a compile error when it is used on a union, or when conflicting attributes such as `size` and `ignore` are combined on the same field. A field whose type does not implement [`GetSize`] and which is not covered by an attribute also fails to compile.
+The macro reports a compile error when it is used on a union, when a field is given more than one of `size`, `size_fn` and `ignore`, or when an attribute is not one of those listed above. A field whose type does not implement [`GetSize`] and which is not covered by an attribute also fails to compile.
 
 The field attributes are rejected on a struct, an enum or a variant, where they would have no effect:
 

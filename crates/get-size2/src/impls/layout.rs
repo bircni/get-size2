@@ -78,18 +78,20 @@ pub fn std_hash_table_size(capacity: usize, entry: Layout) -> usize {
 ///
 /// The reported capacity is the only available input. It is exact for a table which never had
 /// an entry removed, but removals leave tombstones behind which lower the capacity while the
-/// allocation stays the same, so the result is a lower bound for such a table.
+/// allocation stays the same, so the result is a lower bound for such a table, down to zero for
+/// one which was emptied.
 #[cfg(any(feature = "std", feature = "indexmap", feature = "ordermap"))]
 fn hash_table_size(capacity: usize, entry: Layout, group_width: usize) -> usize {
     if capacity == 0 {
-        // An empty table points at a static control group.
+        // A table which never held an entry points at a static control group. One which was
+        // emptied again reports no capacity either, although its allocation is still alive,
+        // which cannot be told apart.
         return 0;
     }
 
     // Mirrors how `hashbrown` picks the number of buckets for a requested capacity: small
     // tables keep one bucket free, larger ones are filled up to 7/8. A capacity reported by a
-    // table yields its own number of buckets again. A zero sized entry type reports an unbounded
-    // capacity, for which the smallest table is assumed.
+    // table yields its own number of buckets again.
     let buckets = if capacity < 4 {
         4
     } else if capacity < 8 {
@@ -97,11 +99,16 @@ fn hash_table_size(capacity: usize, entry: Layout, group_width: usize) -> usize 
     } else if capacity < 15 {
         16
     } else {
-        capacity
+        let buckets = capacity
             .checked_mul(8)
             .map(|scaled| scaled / 7)
-            .and_then(usize::checked_next_power_of_two)
-            .unwrap_or(4)
+            .and_then(usize::checked_next_power_of_two);
+
+        // No allocation can be this large.
+        let Some(buckets) = buckets else {
+            return usize::MAX;
+        };
+        buckets
     };
 
     let ctrl_align = entry.align().max(group_width);
