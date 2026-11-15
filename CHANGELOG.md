@@ -2,6 +2,31 @@
 
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
+## [0.12.0](https://github.com/bircni/get-size2/compare/0.11.1..0.12.0) - 2026-11-15
+
+### Bug Fixes
+
+-  [**breaking**] Verify sizes against the allocator and harden the derive macro (#68) - ([7d06db3](https://github.com/bircni/get-size2/commit/7d06db3e09dd4af528c631a8d930d874151808a0)) - bircni
+
+### Features
+
+-  [**breaking**] Count allocation overhead, track by default and rework the derive macro (#61) - ([a2dd1db](https://github.com/bircni/get-size2/commit/a2dd1dbfd5674ae35cf42dcaf00a84a9f3d8255e)) - bircni
+-  [**breaking**] Implement `GetSize` for more types and accept unsized targets in trackers (#63) - ([aec64f4](https://github.com/bircni/get-size2/commit/aec64f4435987cca3d33299010c6ec366320a7bc)) - bircni
+
+### Security
+
+- **(deps)** bump actions/checkout from 6.1.0 to 7.0.1 in the actions group (#66) - ([a12fbf4](https://github.com/bircni/get-size2/commit/a12fbf4fd676620ee3ab778af042d662cbbe8b32)) - dependabot[bot]
+
+### Build
+
+- **(deps)** update roaring requirement from 0.11 to 0.12 (#64) - ([fb77345](https://github.com/bircni/get-size2/commit/fb77345b95f54ca1610da593751a49f7c05e2b23)) - dependabot[bot]
+- **(deps)** update orx-concurrent-vec requirement from 3.10 to 4.1 (#65) - ([e417490](https://github.com/bircni/get-size2/commit/e417490c214e9fe6d653f7f83243391970c6c059)) - dependabot[bot]
+- **(deps)** update parking_lot requirement from 0.12 to 0.13 (#67) - ([8c0242d](https://github.com/bircni/get-size2/commit/8c0242d4fd9fb2292d44145f35682418733ea1e0)) - dependabot[bot]
+
+### Ci
+
+- Harden the workflow and declare the MSRV (#62) - ([fd4b031](https://github.com/bircni/get-size2/commit/fd4b031da62b27177280c16ee7f1dea6f0348712)) - bircni
+
 ## [0.11.1](https://github.com/bircni/get-size2/compare/0.11.0..0.11.1) - 2026-10-10
 
 ### Bug Fixes

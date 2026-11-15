@@ -6,13 +6,13 @@ members = ["crates/get-size2", "crates/get-size-derive2"]
 edition = "2024"
 rust-version = "1.85"
 license = "MIT"
-version = "0.11.1"
+version = "0.12.0"
 authors = ["Denis Kerp", "Nicolas"]
 
 [workspace.dependencies]
 # The lowest versions the derive macro has been built and tested with.
 syn = "3.0.4"
-get-size-derive2 = { version = "0.11.1", path = "crates/get-size-derive2" }
+get-size-derive2 = { version = "0.12.0", path = "crates/get-size-derive2" }
 quote = "1.0.40"
 proc-macro2 = "1.0.95"
 
