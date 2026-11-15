@@ -179,10 +179,16 @@ impl Field {
 
 /// Names a local variable of the generated code.
 ///
-/// The mixed site span gives it the hygiene of a `macro_rules!` local: it cannot collide with a
-/// field bound by an enum variant pattern, nor shadow a helper function named by the user.
+/// Two things keep it apart from the names of the user. The mixed site span gives it the hygiene
+/// of a `macro_rules!` local, so it is neither captured by a field bound in an enum variant
+/// pattern nor does it shadow a helper function. That hygiene does not cover items though: a
+/// constant or static of the same name would turn the binding into a pattern. The prefix makes
+/// such a clash as unlikely as it gets.
 fn local(name: &str) -> syn::Ident {
-    syn::Ident::new(name, proc_macro2::Span::mixed_site())
+    syn::Ident::new(
+        &format!("__get_size_{name}"),
+        proc_macro2::Span::mixed_site(),
+    )
 }
 
 /// Generates the body which adds up the heap size of `fields` and returns it with the tracker.
@@ -218,7 +224,7 @@ fn sum_fields(fields: &[Field], reference: impl Fn(usize, &Field) -> TokenStream
         });
 
     quote! {
-        let #total = 0usize;
+        let #total: ::core::primitive::usize = 0;
         #(#additions)*
         (#total, #tracker)
     }
@@ -410,7 +416,7 @@ fn expand(input: TokenStream2) -> syn::Result<TokenStream2> {
             fn get_heap_size_with_tracker<__GetSizeTracker: ::get_size2::GetSizeTracker>(
                 &self,
                 #tracker: __GetSizeTracker,
-            ) -> (usize, __GetSizeTracker) {
+            ) -> (::core::primitive::usize, __GetSizeTracker) {
                 #body
             }
         }
@@ -693,11 +699,11 @@ mod tests {
             "{implementation}"
         );
         assert!(
-            implementation.contains("Self::Tuple{1:field_1,..}=>"),
+            implementation.contains("Self::Tuple{1:__get_size_field_1,..}=>"),
             "{implementation}"
         );
         assert!(
-            implementation.contains("Self::Named{tracker:field_0,..}=>"),
+            implementation.contains("Self::Named{tracker:__get_size_field_0,..}=>"),
             "{implementation}"
         );
     }

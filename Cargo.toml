@@ -10,8 +10,7 @@ version = "0.11.1"
 authors = ["Denis Kerp", "Nicolas"]
 
 [workspace.dependencies]
-# The lowest versions which resolve together with every optional integration, and which the
-# test suite was run with. The derive macro itself gets by with older ones.
+# The lowest versions the derive macro has been built and tested with.
 syn = "3.0.4"
 get-size-derive2 = { version = "0.11.1", path = "crates/get-size-derive2" }
 quote = "1.0.40"

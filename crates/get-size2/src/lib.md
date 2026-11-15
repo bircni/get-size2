@@ -31,7 +31,7 @@ These are the three methods you will usually call:
 | [`get_heap_size`](GetSize::get_heap_size) | The bytes this value owns on the heap |
 | [`get_size`](GetSize::get_size) | The sum of both |
 
-Each of the two measuring methods has a `_with_tracker` variant, [`get_heap_size_with_tracker`](GetSize::get_heap_size_with_tracker) being the one an implementation has to provide.
+Each of the two measuring methods has a `_with_tracker` variant, [`get_heap_size_with_tracker`](GetSize::get_heap_size_with_tracker) being the one an implementation overrides if the type owns heap memory.
 
 It is implemented for the primitives and for most types of [`core`], [`alloc`](https://doc.rust-lang.org/alloc/) and [`std`], for your own types via [the derive macro](#deriving-getsize), and for a number of popular third party types behind [feature flags](#feature-flags).
 

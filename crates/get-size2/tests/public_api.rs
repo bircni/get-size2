@@ -212,3 +212,54 @@ fn generated_locals_do_not_capture_user_names() {
     let tuple = Variants::Tuple(String::from("abcd"), vec![0; 10]);
     assert_eq!(tuple.get_heap_size(), 4 + 10);
 }
+
+/// Items named like the local variables of the generated code, as a glob import of generated
+/// bindings may bring into scope. A local binding of the same name would be read as a pattern
+/// matching the constant, or be rejected for shadowing the static.
+mod items {
+    #![expect(
+        non_upper_case_globals,
+        non_camel_case_types,
+        reason = "the names have to match the ones a generated implementation could use"
+    )]
+
+    use get_size2::GetSize;
+
+    pub const total: u8 = 5;
+    pub const field_0: u8 = 5;
+    pub static tracker: u8 = 5;
+    pub struct field_size;
+    pub struct usize;
+
+    #[derive(GetSize)]
+    pub struct Struct<const field_1: bool> {
+        pub name: String,
+        pub data: Vec<u8>,
+    }
+
+    #[derive(GetSize)]
+    pub enum Enum {
+        Tuple(String, Vec<u8>),
+        Named { name: String },
+    }
+}
+
+#[test]
+fn generated_locals_do_not_clash_with_user_items() {
+    assert_eq!(items::total + items::field_0 + items::tracker, 15);
+    let _ = (items::field_size, items::usize);
+
+    let value = items::Struct::<true> {
+        name: String::from("name"),
+        data: vec![0; 10],
+    };
+    assert_eq!(value.get_heap_size(), 4 + 10);
+
+    let tuple = items::Enum::Tuple(String::from("name"), vec![0; 10]);
+    assert_eq!(tuple.get_heap_size(), 4 + 10);
+
+    let named = items::Enum::Named {
+        name: String::from("name"),
+    };
+    assert_eq!(named.get_heap_size(), 4);
+}
