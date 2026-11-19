@@ -42,7 +42,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Machete
-        uses: bnjbvr/cargo-machete@a84eadc0a20e522e37a502609e97a7ce30c998ed # v0.10.0
+        uses: bnjbvr/cargo-machete@431e75731b681a69a4cfdeb1315b505778bb5c70 # v0.10.1
 
   cargo-deny:
     name: cargo-deny
@@ -144,7 +144,7 @@ jobs:
         run: rustup target add thumbv7m-none-eabi
 
       - name: Install cargo-hack
-        uses: taiki-e/install-action@4a76afe23f9e08d2d9550fb56e556444e8611d21 # v2.90.4
+        uses: taiki-e/install-action@ab49d3c64680143e184118bed66a46419fc15519 # v2.90.5
         with:
           tool: cargo-hack
 
@@ -272,7 +272,7 @@ jobs:
           shared-key: tarpaulin
 
       - name: Install cargo-tarpaulin
-        uses: taiki-e/install-action@4a76afe23f9e08d2d9550fb56e556444e8611d21 # v2.90.4
+        uses: taiki-e/install-action@ab49d3c64680143e184118bed66a46419fc15519 # v2.90.5
         with:
           tool: cargo-tarpaulin
 
