@@ -42,7 +42,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Machete
-        uses: bnjbvr/cargo-machete@a84eadc0a20e522e37a502609e97a7ce30c998ed # v0.10.0
+        uses: bnjbvr/cargo-machete@431e75731b681a69a4cfdeb1315b505778bb5c70 # v0.10.1
 
   cargo-deny:
     name: cargo-deny
@@ -52,7 +52,7 @@ jobs:
         with:
           persist-credentials: false
       # Checks the advisories, bans, licenses and sources configured in `deny.toml`.
-      - uses: EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25 # v2.1.1
+      - uses: EmbarkStudios/cargo-deny-action@17aeb3c839e42274e2b8adf721c8c65edfdc74dd # v2.1.3
 
   build:
     name: Build & Test (${{ matrix.name }})
@@ -144,7 +144,7 @@ jobs:
         run: rustup target add thumbv7m-none-eabi
 
       - name: Install cargo-hack
-        uses: taiki-e/install-action@4a76afe23f9e08d2d9550fb56e556444e8611d21 # v2.90.4
+        uses: taiki-e/install-action@fe3acb53a98b62c772db35de75ce0e4595e7ca8c # v2.90.8
         with:
           tool: cargo-hack
 
@@ -272,7 +272,7 @@ jobs:
           shared-key: tarpaulin
 
       - name: Install cargo-tarpaulin
-        uses: taiki-e/install-action@4a76afe23f9e08d2d9550fb56e556444e8611d21 # v2.90.4
+        uses: taiki-e/install-action@fe3acb53a98b62c772db35de75ce0e4595e7ca8c # v2.90.8
         with:
           tool: cargo-tarpaulin
 
